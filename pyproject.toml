@@ -1,30 +1,33 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-regex-commit"]
 build-backend = "hatchling.build"
 
 [project]
 name = "apluggy"
-description = ''
+description = 'A wrapper of "pluggy" to support asyncio and context managers'
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = "MIT"
 keywords = []
-authors = [
-  { name = "Tai Sakuma", email = "tai.sakuma@gmail.com" },
-]
+authors = [{ name = "Tai Sakuma", email = "tai.sakuma@gmail.com" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: Implementation :: CPython",
-  "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = ["pluggy>=1.0", "decorator>=5.1", "types-decorator>=5.1"]
 dynamic = ["version"]
+
+[project.optional-dependencies]
+tests = [
+  "pytest-asyncio>=0.18",
+  "pytest-cov>=3.0",
+  "pytest-timeout>=2.1",
+  "pytest>=7.0",
+]
 
 [project.urls]
 Documentation = "https://github.com/unknown/apluggy#readme"
@@ -32,30 +35,41 @@ Issues = "https://github.com/unknown/apluggy/issues"
 Source = "https://github.com/unknown/apluggy"
 
 [tool.hatch.version]
+source = "regex_commit"
 path = "src/apluggy/__about__.py"
+tag_sign = false
 
 [tool.hatch.envs.default]
-dependencies = [
-  "pytest",
-  "pytest-cov",
-]
+dependencies = ["pytest", "pytest-cov"]
 [tool.hatch.envs.default.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/apluggy --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["37", "38", "39", "310", "311"]
+python = ["38", "39", "310", "311"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+timeout = 60
+addopts = "--doctest-modules"
+# doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE",]
+doctest_optionflags = ["ELLIPSIS"]
+
+[tool.black]
+skip-string-normalization = true
+target_version = ['py38', 'py39', 'py310', 'py311']
 
 [tool.coverage.run]
 branch = true
 parallel = true
-omit = [
-  "src/apluggy/__about__.py",
-]
+omit = ["src/apluggy/__about__.py"]
 
 [tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+
+[tool.isort]
+profile = "black"
+
+[[tool.mypy.overrides]]
+module = ["pluggy.*"]
+ignore_missing_imports = true
