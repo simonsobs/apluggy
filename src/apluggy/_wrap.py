@@ -174,8 +174,41 @@ class _AWith:
             hook = getattr(self.pm.hook, name)
             async with contextlib.AsyncExitStack() as stack:
                 contexts = hook(*args, **kwargs)
-                y = [await stack.enter_async_context(context) for context in contexts]
-                yield y
+                yields = [
+                    await stack.enter_async_context(context) for context in contexts
+                ]
+
+                # TODO: Consider entering the contexts asynchronously as in the
+                # following commented out code.
+
+                # yields = await asyncio.gather(
+                #     *[stack.enter_async_context(context) for context in contexts]
+                # )
+
+                # yield yields
+
+                # With the above line uncommented, this function could end here
+                # for a normal usage of asynchronous context managers.
+
+                # The following code supports `asend()` through the `gen` attribute.
+
+                # This function doesn't return a value as asynchronous generators
+                # are generally not allowed to return a value.
+
+                # TODO: The number of the `yield` statements must be the same
+                # for all hook implementations.
+
+                # TODO: Support `athrow()` and `aclose()`.
+
+                stop = False
+                while not stop:
+                    sent = yield yields
+                    try:
+                        yields = await asyncio.gather(
+                            *[context.gen.asend(sent) for context in contexts]
+                        )
+                    except StopAsyncIteration:
+                        stop = True
 
         return call
 
