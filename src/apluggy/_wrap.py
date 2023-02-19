@@ -128,8 +128,38 @@ class _With:
             hook = getattr(self.pm.hook, name)
             with contextlib.ExitStack() as stack:
                 contexts = hook(*args, **kwargs)
-                y = [stack.enter_context(context) for context in contexts]
-                yield y
+                yields = [stack.enter_context(context) for context in contexts]
+
+                # yield yields
+
+                # With the above line uncommented, this function could end here
+                # for a normal usage of context managers.
+
+                # The following code supports `send()` through the `gen` attribute.
+                # (https://stackoverflow.com/a/68304565/7309855)
+
+                # The following code also returns the return values of the hook
+                # implementations.
+
+                # TODO: The number of the `yield` statements must be the same
+                # for all hook implementations.
+
+                # TODO: Support `throw()` and `close()`.
+
+                stop = False
+                while not stop:
+                    sent = yield yields
+
+                    yields = []
+                    returns = []
+                    for context in contexts:
+                        try:
+                            yields.append(context.gen.send(sent))
+                        except StopIteration as e:
+                            stop = True
+                            returns.append(e.value)
+
+                return returns
 
         return call
 
