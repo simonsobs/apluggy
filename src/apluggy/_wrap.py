@@ -178,6 +178,9 @@ class _With:
                             stop = True
                             returns.append(e.value)
 
+                    if not contexts:
+                        stop = True
+
             return returns
 
         return call
