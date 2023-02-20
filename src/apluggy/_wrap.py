@@ -148,7 +148,24 @@ class _With:
 
                 stop = False
                 while not stop:
-                    sent = yield yields
+                    try:
+                        sent = yield yields
+                    except BaseException as thrown:
+                        # gen.throw() has been called.
+                        # Throw the exception to all hook implementations.
+                        raised = []
+                        for context in contexts:
+                            try:
+                                context.gen.throw(thrown)
+                            except StopIteration:
+                                pass
+                            except BaseException as e:
+                                raised.append(e)
+                        if raised:
+                            raise Exception(raised)
+                            # TODO: ExceptionGroup can be used in Python 3.11+.
+                            # https://stackoverflow.com/a/50414672/7309855
+                        raise
 
                     yields = []
                     returns = []
