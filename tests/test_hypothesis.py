@@ -1,9 +1,11 @@
+from itertools import zip_longest
 from typing import ContextManager, Generator, List, Optional
 
 import pytest
 from exceptiongroup import BaseExceptionGroup
 from hypothesis import given
 from hypothesis import strategies as st
+from rich import print
 
 import apluggy as pluggy
 from apluggy import contextmanager
@@ -72,6 +74,7 @@ class Plugin:
         self._handle = handle
 
     def bare(self) -> ContextManager[str]:
+        '''To be hooked as hook implementation.'''
         return context(
             yields=self._yields,
             expected_receives=self._expected_receives,
@@ -145,54 +148,108 @@ def test_context(data: st.DataObject):
 
 @given(st.data())
 def test_one(data: st.DataObject):
-    test_send = True
+    test_send = False
     test_throw = True
 
-    n_yields = data.draw(st.integers(min_value=1, max_value=10)) if test_send else 1
-    n_sends = n_yields - 1
+    n_plugins = data.draw(st.integers(min_value=0, max_value=5))
 
-    yields = data.draw(
-        st.lists(st.text(), min_size=n_yields, max_size=n_yields, unique=True)
+    n_max_yields = data.draw(st.integers(min_value=1, max_value=10)) if test_send else 1
+
+    yields_list = data.draw(
+        st.lists(
+            st.lists(st.text(), min_size=1, max_size=n_max_yields, unique=True),
+            min_size=n_plugins,
+            max_size=n_plugins,
+        )
     )
+
+    n_yields_list = list(map(len, yields_list))
+    n_max_yields = max(n_yields_list) if n_yields_list else 1
+
+    n_sends = n_max_yields - 1
+
     sends = data.draw(
         st.lists(st.text(), min_size=n_sends, max_size=n_sends, unique=True)
     )
 
     throw = data.draw(st.booleans()) if test_throw else False
-    handle = data.draw(st.booleans()) if throw else False
 
-    ret = data.draw(st.one_of(st.none(), st.text())) if not throw else None
+    handle_list = (
+        data.draw(st.lists(st.booleans(), min_size=n_plugins, max_size=n_plugins))
+        if throw
+        else [False] * n_plugins
+    )
+
+    ret_list = (
+        data.draw(
+            st.lists(
+                st.one_of(st.none(), st.text()),
+                min_size=n_plugins,
+                max_size=n_plugins,
+            )
+        )
+        if not throw
+        else [None] * n_plugins
+    )
+
+    assert len(yields_list) == len(handle_list) == len(ret_list) == n_plugins
 
     if not test_send:
-        assert len(yields) == 1
+        assert all(len(yields) == 1 for yields in yields_list)
         assert len(sends) == 0
 
     if not test_throw:
         assert not throw
-        assert not handle
+        assert not any(handle_list)
 
-    check_context(yields=yields, sends=sends, ret=ret, throw=throw, handle=handle)
+    for i in range(n_plugins):
+        yields = yields_list[i]
+        handle = handle_list[i]
+        ret = ret_list[i]
+
+        check_context(
+            yields=yields,
+            sends=sends[: len(yields) - 1],
+            ret=ret,
+            throw=throw and len(yields) == n_max_yields,
+            handle=handle and len(yields) == n_max_yields,
+        )
 
     pm = pluggy.PluginManager('project')
     pm.add_hookspecs(Spec)
 
-    for _ in range(2):
-        plugin = Plugin(yields=yields, expected_receives=sends, ret=ret, handle=handle)
+    for i in range(n_plugins):
+        yields = yields_list[i]
+        handle = handle_list[i]
+        ret = ret_list[i]
+        plugin = Plugin(
+            yields=yields,
+            expected_receives=sends[: len(yields) - 1],
+            ret=ret,
+            handle=handle and len(yields) == n_max_yields,
+        )
         _ = pm.register(plugin)
 
-    with (c := pm.with_.hook()) as yielded:
-        assert [yields[0]] * 2 == yielded
-        assert len(sends) == len(yields[1:])
+    # transpose yields_list. Fill with None if necessary
+    yields_tr = list(map(list, zip_longest(*reversed(yields_list), fillvalue=None)))  # type: ignore
 
-        for s, expected in zip(sends, yields[1:]):
+    if not yields_tr:
+        assert not n_plugins
+        yields_tr = [[]]
+
+    with (c := pm.with_.hook()) as yielded:
+        assert yields_tr[0] == yielded
+        assert len(sends) == len(yields_tr[1:])
+
+        for s, expected in zip(sends, yields_tr[1:]):
             yielded = c.gen.send(s)
-            assert [expected] * 2 == yielded
+            assert expected == yielded
 
         if throw:
             thrown = Thrown()
             with pytest.raises((Thrown, BaseExceptionGroup)) as excinfo_throw:
                 c.gen.throw(thrown)
-            if handle:
+            if all(handle_list):
                 assert excinfo_throw.type is Thrown
             else:
                 assert isinstance(excinfo_throw.value, BaseExceptionGroup)
@@ -202,7 +259,7 @@ def test_one(data: st.DataObject):
                         for e in excinfo_throw.value.exceptions
                     ]
                 )
-        elif ret is not None:
+        elif any(ret is not None for ret in ret_list):
             with pytest.raises(StopIteration) as excinfo_ret:
                 c.gen.send(None)
-            assert [ret, ret] == excinfo_ret.value.value
+            assert list(reversed(ret_list)) == excinfo_ret.value.value
