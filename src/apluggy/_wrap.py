@@ -102,6 +102,7 @@ inside Plugin_1.acontext()
 import asyncio
 import contextlib
 
+from exceptiongroup import ExceptionGroup
 from pluggy import PluginManager as PluginManager_
 
 
@@ -162,9 +163,9 @@ class _With:
                             except BaseException as e:
                                 raised.append(e)
                         if raised:
-                            raise Exception(raised)
-                            # TODO: ExceptionGroup can be used in Python 3.11+.
-                            # https://stackoverflow.com/a/50414672/7309855
+                            raise ExceptionGroup(
+                                'Raised in hook implementations.', raised
+                            )
                         raise
 
                     yields = []
