@@ -101,8 +101,9 @@ inside Plugin_1.acontext()
 
 import asyncio
 import contextlib
+from typing import Any, Generator, List
 
-from exceptiongroup import ExceptionGroup
+from exceptiongroup import BaseExceptionGroup
 from pluggy import PluginManager as PluginManager_
 
 
@@ -125,7 +126,7 @@ class _With:
 
     def __getattr__(self, name):
         @contextlib.contextmanager
-        def call(*args, **kwargs):
+        def call(*args, **kwargs) -> Generator[List, Any, List]:
             hook = getattr(self.pm.hook, name)
             with contextlib.ExitStack() as stack:
                 contexts = hook(*args, **kwargs)
@@ -154,7 +155,7 @@ class _With:
                     except BaseException as thrown:
                         # gen.throw() has been called.
                         # Throw the exception to all hook implementations.
-                        raised = []
+                        raised: List[BaseException] = []
                         for context in contexts:
                             try:
                                 context.gen.throw(thrown)
@@ -163,7 +164,7 @@ class _With:
                             except BaseException as e:
                                 raised.append(e)
                         if raised:
-                            raise ExceptionGroup(
+                            raise BaseExceptionGroup(
                                 'Raised in hook implementations.', raised
                             )
                         raise
@@ -177,7 +178,7 @@ class _With:
                             stop = True
                             returns.append(e.value)
 
-                return returns
+            return returns
 
         return call
 
