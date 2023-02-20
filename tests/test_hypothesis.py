@@ -43,21 +43,28 @@ def context(
 ) -> Generator[str, str, Optional[str]]:
     '''To be hooked as hook implementation in plugins.'''
 
-    # If multiple items to yield, expect receive some values via
-    # contextmanager.gen.send() except for the last yield.
     assert len(yields[:-1]) == len(expected_receives)
-    for y, expected in zip(yields[:-1], expected_receives):
-        received = yield y
-        assert received == expected
 
     try:
+        # If multiple items to yield, expect to receive some values via
+        # contextmanager.gen.send() except for the last yield.
+        for y, expected in zip(yields[:-1], expected_receives):
+            received = yield y
+            assert received == expected
         yield yields[-1]
     except Thrown as thrown:
         if handle:
             pass
         else:
             raise Raised(thrown)
-    return ret
+    finally:
+        # NOTE: If a `return` statement is executed in the finally clause,
+        # the exception will not be re-raised.
+        # https://docs.python.org/3/tutorial/errors.html
+        if ret is not None:
+            return ret
+
+    return None
 
 
 class Plugin:
