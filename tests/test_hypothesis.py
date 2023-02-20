@@ -43,16 +43,25 @@ def context(
 ) -> Generator[str, str, Optional[str]]:
     '''To be hooked as hook implementation in plugins.'''
 
+    # NOTE: A context manager normally yields exactly once. However, it is possible
+    # to yield multiple times to receive some values via contextmanager.gen.send().
+    # (https://stackoverflow.com/a/68304565/7309855)
+
+    # The first yield is executed when the context manager is entered. Then,
+    # the subsequent yields are executed when contextmanager.gen.send() is
+    # called.
+
     assert len(yields[:-1]) == len(expected_receives)
 
     try:
-        # If multiple items to yield, expect to receive some values via
-        # contextmanager.gen.send() except for the last yield.
+        # Expect for send() to be called for each yield except the last one.
         for y, expected in zip(yields[:-1], expected_receives):
             received = yield y
             assert received == expected
+        # The last yield. The only yield in the normal use case without send().
         yield yields[-1]
     except Thrown as thrown:
+        # gen.throw() has been called.
         if handle:
             pass
         else:
