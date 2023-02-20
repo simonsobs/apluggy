@@ -113,21 +113,54 @@ def check_context(
 
 
 @given(st.data())
+def test_context(data: st.DataObject):
+    test_send = True
+    test_throw = True
+
+    n_yields = data.draw(st.integers(min_value=1, max_value=10)) if test_send else 1
+    n_sends = n_yields - 1
+
+    yields = data.draw(
+        st.lists(st.text(), min_size=n_yields, max_size=n_yields, unique=True)
+    )
+    sends = data.draw(
+        st.lists(st.text(), min_size=n_sends, max_size=n_sends, unique=True)
+    )
+
+    throw = data.draw(st.booleans()) if test_throw else False
+    handle = data.draw(st.booleans()) if throw else False
+
+    ret = data.draw(st.one_of(st.none(), st.text())) if not throw else None
+
+    if not test_send:
+        assert len(yields) == 1
+        assert len(sends) == 0
+
+    if not test_throw:
+        assert not throw
+        assert not handle
+
+    check_context(yields=yields, sends=sends, ret=ret, throw=throw, handle=handle)
+
+
+@given(st.data())
 def test_one(data: st.DataObject):
     test_send = True
     test_throw = True
 
-    max_yields_size = 10 if test_send else 1
-    yields = data.draw(
-        st.lists(st.text(), min_size=1, max_size=max_yields_size, unique=True)
-    )
-    n_yields = len(yields)
+    n_yields = data.draw(st.integers(min_value=1, max_value=10)) if test_send else 1
     n_sends = n_yields - 1
+
+    yields = data.draw(
+        st.lists(st.text(), min_size=n_yields, max_size=n_yields, unique=True)
+    )
     sends = data.draw(
         st.lists(st.text(), min_size=n_sends, max_size=n_sends, unique=True)
     )
+
     throw = data.draw(st.booleans()) if test_throw else False
     handle = data.draw(st.booleans()) if throw else False
+
     ret = data.draw(st.one_of(st.none(), st.text())) if not throw else None
 
     if not test_send:
@@ -142,17 +175,18 @@ def test_one(data: st.DataObject):
 
     pm = pluggy.PluginManager('project')
     pm.add_hookspecs(Spec)
-    _ = pm.register(
-        Plugin(yields=yields, expected_receives=sends, ret=ret, handle=handle)
-    )
+
+    for _ in range(2):
+        plugin = Plugin(yields=yields, expected_receives=sends, ret=ret, handle=handle)
+        _ = pm.register(plugin)
 
     with (c := pm.with_.hook()) as yielded:
-        assert [yields[0]] == yielded
+        assert [yields[0]] * 2 == yielded
         assert len(sends) == len(yields[1:])
 
         for s, expected in zip(sends, yields[1:]):
             yielded = c.gen.send(s)
-            assert [expected] == yielded
+            assert [expected] * 2 == yielded
 
         if throw:
             thrown = Thrown()
@@ -171,4 +205,4 @@ def test_one(data: st.DataObject):
         elif ret is not None:
             with pytest.raises(StopIteration) as excinfo_ret:
                 c.gen.send(None)
-            assert [ret] == excinfo_ret.value.value
+            assert [ret, ret] == excinfo_ret.value.value
