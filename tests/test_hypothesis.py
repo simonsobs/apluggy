@@ -20,12 +20,96 @@ class Spec:
 
 
 class Thrown(Exception):
+    '''To be thrown to the context manager.
+
+    An argument of `contextmanager.gen.throw()`.
+    '''
+
     pass
 
 
 class Raised(Exception):
+    '''To be rased by the context manager when it catches `Thrown`.'''
+
     def __init__(self, thrown: Thrown):
         self.thrown = thrown
+
+
+@contextmanager
+def context(
+    yields: List[str], expected_receives: List[str], ret: Optional[str], handle: bool
+) -> Generator[str, str, Optional[str]]:
+    '''To be hooked as hook implementation in plugins.'''
+
+    # If multiple items to yield, expect receive some values via
+    # contextmanager.gen.send() except for the last yield.
+    assert len(yields[:-1]) == len(expected_receives)
+    for y, expected in zip(yields[:-1], expected_receives):
+        received = yield y
+        assert received == expected
+
+    try:
+        yield yields[-1]
+    except Thrown as thrown:
+        if handle:
+            pass
+        else:
+            raise Raised(thrown)
+    return ret
+
+
+class Plugin:
+    def __init__(
+        self,
+        yields: List[str],
+        expected_receives: List[str],
+        ret: Optional[str],
+        handle: bool,
+    ):
+        self._yields = yields
+        self._expected_receives = expected_receives
+        self._ret = ret
+        self._handle = handle
+
+    def bare(self) -> ContextManager[str]:
+        return context(
+            yields=self._yields,
+            expected_receives=self._expected_receives,
+            ret=self._ret,
+            handle=self._handle,
+        )
+
+    hook = hookimpl(bare)
+
+
+def check_context(
+    yields: List[str], sends: List[str], ret: Optional[str], throw: bool, handle: bool
+):
+    '''Test context() by itself without being hooked in a plugin.'''
+    c = context(yields=yields, expected_receives=sends, ret=ret, handle=handle)
+    with c as yielded:
+        assert yields[0] == yielded
+
+        assert len(sends) == len(yields[1:])
+        for s, expected in zip(sends, yields[1:]):
+            yielded = c.gen.send(s)
+            assert expected == yielded
+
+        if throw:
+            thrown = Thrown()
+            if handle:
+                with pytest.raises(StopIteration):
+                    c.gen.throw(thrown)
+            else:
+                with pytest.raises(Raised) as excinfo_raised:
+                    c.gen.throw(thrown)
+                assert excinfo_raised.type is Raised
+                assert excinfo_raised.value.thrown == thrown
+
+        elif ret is not None:
+            with pytest.raises(StopIteration) as excinfo_ret:
+                c.gen.send(None)
+            assert ret == excinfo_ret.value.value
 
 
 @given(st.data())
@@ -54,65 +138,13 @@ def test_one(data: st.DataObject):
         assert not throw
         assert not handle
 
-    @contextmanager
-    def g(
-        yields: List[str], expected_receives: List[str], ret: str
-    ) -> Generator[str, str, str]:
-        assert len(yields[:-1]) == len(expected_receives)
-        for y, expected in zip(yields[:-1], expected_receives):
-            received = yield y
-            assert received == expected
-        try:
-            yield yields[-1]
-        except Thrown as thrown:
-            if handle:
-                pass
-            else:
-                raise Raised(thrown)
-        return ret
-
-    with (c := g(yields=yields, expected_receives=sends, ret=ret)) as yielded:
-        assert yields[0] == yielded
-        assert len(sends) == len(yields[1:])
-        for s, expected in zip(sends, yields[1:]):
-            yielded = c.gen.send(s)
-            assert expected == yielded
-        if throw:
-            thrown = Thrown()
-            if handle:
-                with pytest.raises(StopIteration):
-                    c.gen.throw(thrown)
-            else:
-                with pytest.raises(Raised) as excinfo_raised:
-                    c.gen.throw(thrown)
-                assert excinfo_raised.type is Raised
-                assert excinfo_raised.value.thrown == thrown
-
-        elif ret is not None:
-            with pytest.raises(StopIteration) as excinfo_ret:
-                c.gen.send(None)
-            assert ret == excinfo_ret.value.value
-
-    class Plugin:
-        def __init__(
-            self, yields: List[str], expected_receives: List[str], ret: Optional[str]
-        ):
-            self._yields = yields
-            self._expected_receives = expected_receives
-            self._ret = ret
-
-        def bare(self) -> ContextManager[str]:
-            return g(
-                yields=self._yields,
-                expected_receives=self._expected_receives,
-                ret=self._ret,
-            )
-
-        hook = hookimpl(bare)
+    check_context(yields=yields, sends=sends, ret=ret, throw=throw, handle=handle)
 
     pm = pluggy.PluginManager('project')
     pm.add_hookspecs(Spec)
-    _ = pm.register(Plugin(yields=yields, expected_receives=sends, ret=ret))
+    _ = pm.register(
+        Plugin(yields=yields, expected_receives=sends, ret=ret, handle=handle)
+    )
 
     with (c := pm.with_.hook()) as yielded:
         assert [yields[0]] == yielded
