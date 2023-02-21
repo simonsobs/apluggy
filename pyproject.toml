@@ -57,7 +57,10 @@ python = ["38", "39", "310", "311"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 timeout = 60
-addopts = "--doctest-modules"
+addopts = """
+--doctest-modules
+--doctest-glob='*.md'
+"""
 # doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE",]
 doctest_optionflags = ["ELLIPSIS"]
 
