@@ -10,19 +10,10 @@ A wrapper of [pluggy](https://pluggy.readthedocs.io/) to support asyncio and con
 
 This package provides a subclass of
 [`pluggy.PluginManager`](https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluginManager)
-that
+which
 
 - allows async functions, context managers, and async context managers to be hooks
 - and accepts plugin factories in addition to plugin instances for registration.
-
-The package also provides `asynccontextmanager` decorator, which is a wrapper
-of
-[`contextlib.asynccontextmanager`](https://docs.python.org/3/library/contextlib.html#contextlib.asynccontextmanager)
-to preserve the signature of the decorated function. This decorator is
-implemented in the same way as
-[`contextmanager`](https://docs.python.org/3/library/contextlib.html#contextlib.contextmanager)
-from the [decorator package](https://pypi.org/project/decorator/) is
-implemented.
 
 ---
 
@@ -31,25 +22,45 @@ implemented.
 - [apluggy](#apluggy)
   - [Installation](#installation)
   - [How to use](#how-to-use)
-    - [Import packages](#import-packages)
-    - [Create hook specification and implementation decorators](#create-hook-specification-and-implementation-decorators)
-    - [Define hook specifications](#define-hook-specifications)
-    - [Define plugins](#define-plugins)
-    - [Create a plugin manager and register plugins](#create-a-plugin-manager-and-register-plugins)
-    - [Call hooks](#call-hooks)
   - [Links](#links)
   - [License](#license)
   - [Contact](#contact)
 
+---
+
 ## Installation
+
+You can install apluggy with pip:
 
 ```console
 pip install apluggy
 ```
 
+---
+
 ## How to use
 
+Here, we show a simple example of how to use apluggy.
+
+We only describe the usage of additional features provided by apluggy. For the
+usage of pluggy itself, please refer to the [pluggy
+documentation](https://pluggy.readthedocs.io/).
+
+### Start Python
+
+You can try this example in a Python interpreter.
+
+```console
+$ python
+Python 3.8.16 (...)
+...
+...
+>>>
+```
+
 ### Import packages
+
+Import necessary packages of this example.
 
 ```python
 >>> import asyncio
@@ -58,7 +69,19 @@ pip install apluggy
 
 ```
 
-(`contextmanager` is imported from the [decorator package](https://pypi.org/project/decorator/).)
+In this example, `apluggy` is imported with the alias `pluggy`.
+
+The decorators `asynccontextmanager` and `contextmanager` are imported from
+`apluggy`. They are wrappers of the decorators of the same names in the
+[contextlib package](https://docs.python.org/3/library/contextlib.html). The
+wrappers preserve the signatures of decorated functions, which are necessary for
+pluggy to pass arguments to hook implementations correctly. (The decorator
+`contextmanger` in `apluggy` is the same object as the decorator
+`contextmanager` in the [decorator
+package](https://pypi.org/project/decorator/). The decorator package does not
+provide `asynccontextmanager` decorator as of version 5.1. The decorator
+`asynccontextmanger` in `apluggy` is implemented in a similar way as the
+decorator `contextmanager` in the decorator package.)
 
 ### Create hook specification and implementation decorators
 
@@ -67,8 +90,6 @@ pip install apluggy
 >>> hookimpl = pluggy.HookimplMarker('project')
 
 ```
-
-(These makers are imported from the [pluggy package](https://pypi.org/project/pluggy/).)
 
 ### Define hook specifications
 
@@ -157,9 +178,23 @@ as a factory.
 
 ```
 
+[Pluggy accepts a class or
+module](https://pluggy.readthedocs.io/en/stable/#define-and-collect-hooks) as a
+plugin. However, it actually accepts a class instance, not a class itself.
+Consequently, when plugins are loaded with
+[`load_setuptools_entrypoints()`](https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluginManager.load_setuptools_entrypoints),
+the entry points must be class instances or modules. Classes themselves cannot
+be used as entry points (if understood correctly).
+
+So that classes themselves can be entry points, apluggy accepts a class itself for
+a plugin registration. When apluggy receives a callable object, apluggy considers
+the object as a plugin factory.
+
 ### Call hooks
 
 The following example shows how to call hooks.
+
+#### Async function
 
 ```python
 >>> async def call_afunc():
@@ -173,6 +208,8 @@ inside Plugin_1.afunc()
 
 ```
 
+#### Context manager
+
 ```python
 >>> with pm.with_.context(arg1=1, arg2=2) as y:  # with_ instead of hook
 ...     print(y)
@@ -181,6 +218,8 @@ inside Plugin_1.context()
 [-1, 3]
 
 ```
+
+#### Async context manager
 
 ```python
 >>> async def call_acontext():
@@ -194,14 +233,20 @@ inside Plugin_1.acontext()
 
 ```
 
+---
+
 ## Links
 
 - [pluggy](https://pluggy.readthedocs.io/)
 - [decorator](https://pypi.org/project/decorator/)
 
+---
+
 ## License
 
 - _apluggy_ is licensed under the [MIT](https://spdx.org/licenses/MIT.html) license.
+
+---
 
 ## Contact
 
