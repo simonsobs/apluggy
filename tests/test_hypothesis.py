@@ -5,7 +5,6 @@ import pytest
 from exceptiongroup import BaseExceptionGroup
 from hypothesis import given
 from hypothesis import strategies as st
-from rich import print
 
 import apluggy as pluggy
 from apluggy import contextmanager
@@ -163,20 +162,25 @@ def test_context(data: st.DataObject):
 
 
 @given(st.data())
-def test_one(data: st.DataObject):
-    test_send = False
+def test_plugins(data: st.DataObject):
+    test_send = True
     test_throw = True
 
-    n_plugins = data.draw(st.integers(min_value=0, max_value=5))
+    n_plugins = data.draw(st.integers(min_value=0, max_value=5), label='n_plugins')
 
-    n_max_yields = data.draw(st.integers(min_value=1, max_value=10)) if test_send else 1
+    n_max_yields = (
+        data.draw(st.integers(min_value=1, max_value=10), label='n_max_yields')
+        if test_send
+        else 1
+    )
 
     yields_list = data.draw(
         st.lists(
             st.lists(st.text(), min_size=1, max_size=n_max_yields, unique=True),
             min_size=n_plugins,
             max_size=n_plugins,
-        )
+        ),
+        label='yields_list',
     )
 
     n_yields_list = list(map(len, yields_list))
@@ -185,16 +189,16 @@ def test_one(data: st.DataObject):
     n_sends = n_max_yields - 1
 
     sends = data.draw(
-        st.lists(st.text(), min_size=n_sends, max_size=n_sends, unique=True)
+        st.lists(st.text(), min_size=n_sends, max_size=n_sends, unique=True),
+        label='sends',
     )
 
-    throw = data.draw(st.booleans()) if test_throw else False
+    throw = data.draw(st.booleans(), label='throw') if test_throw else False
 
-    handle_list = (
-        data.draw(st.lists(st.booleans(), min_size=n_plugins, max_size=n_plugins))
-        if throw
-        else [False] * n_plugins
-    )
+    handle_list = [
+        data.draw(st.booleans(), label='handle') if n_yields == n_max_yields else False
+        for n_yields in n_yields_list
+    ]
 
     ret_list = (
         data.draw(
@@ -202,7 +206,8 @@ def test_one(data: st.DataObject):
                 st.one_of(st.none(), st.text()),
                 min_size=n_plugins,
                 max_size=n_plugins,
-            )
+            ),
+            label='ret_list',
         )
         if not throw
         else [None] * n_plugins
@@ -228,7 +233,7 @@ def test_one(data: st.DataObject):
             sends=sends[: len(yields) - 1],
             ret=ret,
             throw=throw and len(yields) == n_max_yields,
-            handle=handle and len(yields) == n_max_yields,
+            handle=handle,
         )
 
     pm = pluggy.PluginManager('project')
@@ -242,7 +247,7 @@ def test_one(data: st.DataObject):
             yields=yields,
             expected_receives=sends[: len(yields) - 1],
             ret=ret,
-            handle=handle and len(yields) == n_max_yields,
+            handle=handle,
         )
         _ = pm.register(plugin)
 
@@ -263,18 +268,25 @@ def test_one(data: st.DataObject):
 
         if throw:
             thrown = Thrown()
+            n_raised = len(
+                [
+                    (n, h)
+                    for n, h in zip(n_yields_list, handle_list)
+                    if n == n_max_yields and not h
+                ]
+            )
             with pytest.raises((Thrown, BaseExceptionGroup)) as excinfo_throw:
                 c.gen.throw(thrown)
-            if all(handle_list):
+            if not n_raised:
                 assert excinfo_throw.type is Thrown
             else:
                 assert isinstance(excinfo_throw.value, BaseExceptionGroup)
-                assert all(
-                    [
-                        isinstance(e, Raised) and e.thrown == thrown
-                        for e in excinfo_throw.value.exceptions
-                    ]
-                )
+                expected_exceptions = [thrown] * n_raised
+                actual_exceptions = [
+                    isinstance(e, Raised) and e.thrown
+                    for e in excinfo_throw.value.exceptions
+                ]
+                assert expected_exceptions == actual_exceptions
         elif any(ret is not None for ret in ret_list):
             with pytest.raises(StopIteration) as excinfo_ret:
                 c.gen.send(None)

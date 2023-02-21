@@ -101,7 +101,8 @@ inside Plugin_1.acontext()
 
 import asyncio
 import contextlib
-from typing import Any, Generator, List
+from dataclasses import dataclass
+from typing import Any, Generator, List, Optional
 
 from exceptiongroup import BaseExceptionGroup
 from pluggy import PluginManager as PluginManager_
@@ -121,6 +122,11 @@ class _AHook:
 
 
 class _With:
+    @dataclass
+    class _Context:
+        context: contextlib._GeneratorContextManager
+        stop_iteration: Optional[StopIteration] = None
+
     def __init__(self, pm: PluginManager_):
         self.pm = pm
 
@@ -129,36 +135,37 @@ class _With:
         def call(*args, **kwargs) -> Generator[List, Any, List]:
             hook = getattr(self.pm.hook, name)
             with contextlib.ExitStack() as stack:
-                contexts = hook(*args, **kwargs)
-                yields = [stack.enter_context(context) for context in contexts]
+                imps = hook(*args, **kwargs)
+                yields = [stack.enter_context(imp) for imp in imps]
 
                 # yield yields
 
                 # With the above line uncommented, this function could end here
                 # for a normal usage of context managers.
 
-                # The following code supports `send()` through the `gen` attribute.
-                # (https://stackoverflow.com/a/68304565/7309855)
+                # The following code
+                # 1. supports `send()` through the `gen` attribute.'
+                #    (https://stackoverflow.com/a/68304565/7309855)
+                # 2. returns the return values of the hook implementations.
+                # 3. and supports `throw()` through the `gen` attribute.
 
-                # The following code also returns the return values of the hook
-                # implementations.
+                # TODO: Support `close()`.
 
-                # TODO: The number of the `yield` statements must be the same
-                # for all hook implementations.
+                contexts = [self._Context(imp) for imp in imps]
 
-                # TODO: Support `throw()` and `close()`.
-
-                stop = False
-                while not stop:
+                while True:
                     try:
                         sent = yield yields
                     except BaseException as thrown:
                         # gen.throw() has been called.
-                        # Throw the exception to all hook implementations.
+                        # Throw the exception to all hook implementations
+                        # that have not exited.
                         raised: List[BaseException] = []
-                        for context in contexts:
+                        for c in contexts:
+                            if c.stop_iteration:
+                                continue
                             try:
-                                context.gen.throw(thrown)
+                                c.context.gen.throw(thrown)
                             except StopIteration:
                                 pass
                             except BaseException as e:
@@ -170,18 +177,26 @@ class _With:
                         raise
 
                     yields = []
-                    returns = []
-                    for context in contexts:
-                        try:
-                            yields.append(context.gen.send(sent))
-                        except StopIteration as e:
-                            stop = True
-                            returns.append(e.value)
+                    for c in contexts:
+                        y = None
+                        if not c.stop_iteration:
+                            try:
+                                y = c.context.gen.send(sent)
+                            except StopIteration as e:
+                                c.stop_iteration = e
+                        yields.append(y)
 
-                    if not contexts:
-                        stop = True
+                    if all(c.stop_iteration for c in contexts):
+                        # All hook implementations have exited.
+                        # Collect return values from StopIteration.
+                        returns = [
+                            c.stop_iteration and c.stop_iteration.value
+                            for c in contexts
+                        ]
+                        return returns
 
-            return returns
+            assert False, 'unreachable'
+            return []  # for mypy
 
         return call
 
