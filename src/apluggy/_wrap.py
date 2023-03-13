@@ -259,3 +259,16 @@ class PluginManager(PluginManager_):
         if callable(plugin):
             plugin = plugin()
         super().register(plugin, name=name)
+
+    def get_canonical_name(self, plugin):
+        '''Override to include class names in plugin names.'''
+        if name := getattr(plugin, '__name__', None):
+            # a module
+            return name
+        if class_ := getattr(plugin, '__class__', None):
+            # a class instance
+            # NOTE: Class definitions are instantiated in register()
+            if name := getattr(class_, '__name__', None):
+                # add the id so that multiple instances can be registered
+                return f'{name}_{id(plugin)}'
+        return str(id(plugin))
