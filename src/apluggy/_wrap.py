@@ -102,7 +102,7 @@ inside Plugin_1.acontext()
 import asyncio
 import contextlib
 from dataclasses import dataclass
-from typing import Any, Generator, List, Optional
+from typing import Any, Coroutine, Generator, List, Optional
 
 from exceptiongroup import BaseExceptionGroup
 from pluggy import PluginManager as PluginManager_
@@ -116,6 +116,10 @@ class _AHook:
         async def call(*args, **kwargs):
             hook = getattr(self.pm.hook, name)
             coros = hook(*args, **kwargs)
+            if coros is None:
+                return
+            if isinstance(coros, Coroutine):
+                return await coros
             return await asyncio.gather(*coros)
 
         return call

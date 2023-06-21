@@ -25,3 +25,13 @@ def context(arg1, arg2):
 @asynccontextmanager
 async def acontext(arg1, arg2):
     yield
+
+
+@hookspec(firstresult=True)
+async def func_firstresult():
+    pass
+
+
+@hookspec(firstresult=True)
+async def func_firstresult_noimpl():
+    pass
