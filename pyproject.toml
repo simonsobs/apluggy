@@ -36,9 +36,9 @@ tests = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/unknown/apluggy#readme"
-Issues = "https://github.com/unknown/apluggy/issues"
-Source = "https://github.com/unknown/apluggy"
+Documentation = "https://github.com/simonsobs/apluggy#readme"
+Issues = "https://github.com/simonsobs/apluggy/issues"
+Source = "https://github.com/simonsobs/apluggy"
 
 [tool.hatch.version]
 source = "regex_commit"
