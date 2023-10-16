@@ -24,12 +24,25 @@ class ClassPlugin:
     async def acontext(self, arg1, arg2):
         yield arg1 - arg2
 
+    @spec.hookimpl
+    async def func_firstresult(self):
+        return 0
+
 
 instance_plugin = ClassPlugin()
 
 
 def test_hook(pm: PluginManager):
     assert pm.hook.func(arg1=1, arg2=2) == [-1, -1, 3]
+
+
+async def test_ahook_firstresult(pm: PluginManager):
+    assert (await pm.ahook.func_firstresult()) == 0
+
+
+async def test_ahook_firstresult_noimpl(pm: PluginManager):
+    # smoke test
+    await pm.ahook.func_firstresult_noimpl()
 
 
 async def test_ahook(pm: PluginManager):
