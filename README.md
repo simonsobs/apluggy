@@ -52,7 +52,7 @@ You can try this example in a Python interpreter.
 
 ```console
 $ python
-Python 3.8.16 (...)
+Python 3.10.13 (...)
 ...
 ...
 >>>

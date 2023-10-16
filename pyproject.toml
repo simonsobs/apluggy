@@ -6,17 +6,16 @@ build-backend = "hatchling.build"
 name = "apluggy"
 description = 'A wrapper of "pluggy" to support asyncio and context managers'
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [{ name = "Tai Sakuma", email = "tai.sakuma@gmail.com" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
   "pluggy>=1.0",
@@ -52,7 +51,7 @@ cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/ap
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["38", "39", "310", "311"]
+python = ["310", "311", "312"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -66,7 +65,7 @@ doctest_optionflags = ["ELLIPSIS"]
 
 [tool.black]
 skip-string-normalization = true
-target_version = ['py38', 'py39', 'py310', 'py311']
+target_version = ['py310', 'py311', 'py312']
 
 [tool.coverage.run]
 branch = true
