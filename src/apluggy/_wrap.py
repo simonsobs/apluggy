@@ -102,7 +102,7 @@ inside Plugin_1.acontext()
 import asyncio
 import contextlib
 from dataclasses import dataclass
-from typing import Any, Generator, List, Optional
+from typing import Any, Generator, Optional
 
 from exceptiongroup import BaseExceptionGroup
 from pluggy import PluginManager as PluginManager_
@@ -127,7 +127,7 @@ class _With:
 
     def __getattr__(self, name):
         @contextlib.contextmanager
-        def call(*args, **kwargs) -> Generator[List, Any, List]:
+        def call(*args, **kwargs) -> Generator[list, Any, list]:
             hook = getattr(self.pm.hook, name)
             with contextlib.ExitStack() as stack:
                 hook_impls = hook(*args, **kwargs)
@@ -148,8 +148,8 @@ class _With:
         return call
 
     def _support_gen(
-        self, yields: List, hook_impls: List[contextlib._GeneratorContextManager]
-    ) -> Generator[List, Any, List]:
+        self, yields: list, hook_impls: list[contextlib._GeneratorContextManager]
+    ) -> Generator[list, Any, list]:
         '''This generator method
         1. supports `send()` through the `gen` attribute
            (https://stackoverflow.com/a/68304565/7309855),
@@ -173,7 +173,7 @@ class _With:
                 # gen.throw() has been called.
                 # Throw the exception to all hook implementations
                 # that have not exited.
-                raised: List[BaseException] = []
+                raised: list[BaseException] = []
                 for c in contexts:
                     if c.stop_iteration:
                         continue

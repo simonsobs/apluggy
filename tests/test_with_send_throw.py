@@ -1,5 +1,5 @@
 from itertools import zip_longest
-from typing import ContextManager, Generator, List, Optional
+from typing import ContextManager, Generator, Optional
 
 import pytest
 from exceptiongroup import BaseExceptionGroup
@@ -38,7 +38,7 @@ class Raised(Exception):
 
 @contextmanager
 def context(
-    yields: List[str], expected_receives: List[str], ret: Optional[str], handle: bool
+    yields: list[str], expected_receives: list[str], ret: Optional[str], handle: bool
 ) -> Generator[str, str, Optional[str]]:
     '''To be hooked as hook implementation in plugins.'''
 
@@ -78,8 +78,8 @@ def context(
 class Plugin:
     def __init__(
         self,
-        yields: List[str],
-        expected_receives: List[str],
+        yields: list[str],
+        expected_receives: list[str],
         ret: Optional[str],
         handle: bool,
     ):
@@ -101,7 +101,7 @@ class Plugin:
 
 
 def check_context(
-    yields: List[str], sends: List[str], ret: Optional[str], throw: bool, handle: bool
+    yields: list[str], sends: list[str], ret: Optional[str], throw: bool, handle: bool
 ):
     '''Test context() by itself without being hooked in a plugin.'''
     c = context(yields=yields, expected_receives=sends, ret=ret, handle=handle)
