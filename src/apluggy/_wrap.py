@@ -101,8 +101,9 @@ inside Plugin_1.acontext()
 
 import asyncio
 import contextlib
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Any, Generator, Optional
+from typing import Any, Optional
 
 from exceptiongroup import BaseExceptionGroup
 from pluggy import PluginManager as PluginManager_

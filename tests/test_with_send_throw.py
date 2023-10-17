@@ -1,5 +1,6 @@
+from collections.abc import Generator
 from itertools import zip_longest
-from typing import ContextManager, Generator, Optional
+from typing import ContextManager, Optional
 
 import pytest
 from exceptiongroup import BaseExceptionGroup
