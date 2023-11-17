@@ -41,6 +41,11 @@ def test_with(pm: PluginManager):
         assert r == [-1, -1, 3]
 
 
+def test_with_reverse(pm: PluginManager):
+    with pm.with_reverse.context(arg1=1, arg2=2) as r:
+        assert r == [3, -1, -1]
+
+
 async def test_awith(pm: PluginManager):
     async with pm.awith.acontext(arg1=1, arg2=2) as r:
         assert r == [-1, -1, 3]

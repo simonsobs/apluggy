@@ -16,14 +16,26 @@ class With:
 
     def __getattr__(self, name: str) -> Callable[..., GenCtxManager]:
         hook: HookCaller = getattr(self.pm.hook, name)
-        call = _Call(hook)
-        return call
+        return _Call(hook)
 
 
-def _Call(hook: Callable[..., list[GenCtxManager]]) -> Callable[..., GenCtxManager]:
+class WithReverse:
+    def __init__(self, pm: PluginManager_) -> None:
+        self.pm = pm
+
+    def __getattr__(self, name: str) -> Callable[..., GenCtxManager]:
+        hook: HookCaller = getattr(self.pm.hook, name)
+        return _Call(hook, reverse=True)
+
+
+def _Call(
+    hook: Callable[..., list[GenCtxManager]], reverse: bool = False
+) -> Callable[..., GenCtxManager]:
     @contextlib.contextmanager
     def call(*args: Any, **kwargs: Any) -> Generator[list, Any, list]:
         ctxs = hook(*args, **kwargs)
+        if reverse:
+            ctxs = list(reversed(ctxs))
         with contextlib.ExitStack() as stack:
             yields = [stack.enter_context(ctx) for ctx in ctxs]
 
