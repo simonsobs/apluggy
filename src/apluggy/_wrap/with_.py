@@ -1,24 +1,25 @@
 import contextlib
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterable
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from exceptiongroup import BaseExceptionGroup
+from pluggy import HookCaller
 from pluggy import PluginManager as PluginManager_
+
+GeneratorContextManager = contextlib._GeneratorContextManager
 
 
 class With:
     def __init__(self, pm: PluginManager_) -> None:
         self.pm = pm
 
-    def __getattr__(
-        self, name: str
-    ) -> Callable[..., contextlib._GeneratorContextManager]:
+    def __getattr__(self, name: str) -> Callable[..., GeneratorContextManager]:
         @contextlib.contextmanager
         def call(*args: Any, **kwargs: Any) -> Generator[list, Any, list]:
-            hook = getattr(self.pm.hook, name)
+            hook: HookCaller = getattr(self.pm.hook, name)
             with contextlib.ExitStack() as stack:
-                hook_impls = hook(*args, **kwargs)
+                hook_impls: list[GeneratorContextManager] = hook(*args, **kwargs)
                 yields = [stack.enter_context(imp) for imp in hook_impls]
 
                 # yield yields
@@ -36,7 +37,7 @@ class With:
         return call
 
     def _support_gen(
-        self, yields: list, hook_impls: list[contextlib._GeneratorContextManager]
+        self, yields: list, hook_impls: Iterable[GeneratorContextManager]
     ) -> Generator[list, Any, list]:
         '''This generator method
         1. supports `send()` through the `gen` attribute
@@ -49,7 +50,7 @@ class With:
 
         @dataclass
         class _Context:
-            context: contextlib._GeneratorContextManager
+            context: GeneratorContextManager
             stop_iteration: Optional[StopIteration] = None
 
         contexts = [_Context(context=imp) for imp in hook_impls]
