@@ -133,14 +133,16 @@ defined above.
 ...     @hookimpl
 ...     @contextmanager
 ...     def context(self, arg1, arg2):
-...         print('inside Plugin_1.context()')
+...         print('inside Plugin_1.context(): before')
 ...         yield arg1 + arg2
+...         print('inside Plugin_1.context(): after')
 ...
 ...     @hookimpl
 ...     @asynccontextmanager
 ...     async def acontext(self, arg1, arg2):
-...         print('inside Plugin_1.acontext()')
+...         print('inside Plugin_1.acontext(): before')
 ...         yield arg1 + arg2
+...         print('inside Plugin_1.acontext(): after')
 
 >>> class Plugin_2:
 ...     """A 2nd hook implementation namespace."""
@@ -153,14 +155,16 @@ defined above.
 ...     @hookimpl
 ...     @contextmanager
 ...     def context(self, arg1, arg2):
-...         print('inside Plugin_2.context()')
+...         print('inside Plugin_2.context(): before')
 ...         yield arg1 - arg2
+...         print('inside Plugin_2.context(): after')
 ...
 ...     @hookimpl
 ...     @asynccontextmanager
 ...     async def acontext(self, arg1, arg2):
-...         print('inside Plugin_2.acontext()')
+...         print('inside Plugin_2.acontext(): before')
 ...         yield arg1 - arg2
+...         print('inside Plugin_2.acontext(): after')
 
 ```
 
@@ -213,9 +217,24 @@ inside Plugin_1.afunc()
 ```python
 >>> with pm.with_.context(arg1=1, arg2=2) as y:  # with_ instead of hook
 ...     print(y)
-inside Plugin_2.context()
-inside Plugin_1.context()
+inside Plugin_2.context(): before
+inside Plugin_1.context(): before
 [-1, 3]
+inside Plugin_1.context(): after
+inside Plugin_2.context(): after
+
+```
+
+In the reverse order:
+
+```python
+>>> with pm.with_reverse.context(arg1=1, arg2=2) as y:  # with_reverse instead of hook
+...     print(y)
+inside Plugin_1.context(): before
+inside Plugin_2.context(): before
+[3, -1]
+inside Plugin_2.context(): after
+inside Plugin_1.context(): after
 
 ```
 
@@ -227,9 +246,27 @@ inside Plugin_1.context()
 ...         print(y)
 
 >>> asyncio.run(call_acontext())
-inside Plugin_2.acontext()
-inside Plugin_1.acontext()
+inside Plugin_2.acontext(): before
+inside Plugin_1.acontext(): before
 [-1, 3]
+inside Plugin_1.acontext(): after
+inside Plugin_2.acontext(): after
+
+```
+
+In the reverse order:
+
+```python
+>>> async def call_acontext():
+...     async with pm.awith_reverse.acontext(arg1=1, arg2=2) as y:  # awith_reverse instead of hook
+...         print(y)
+
+>>> asyncio.run(call_acontext())
+inside Plugin_1.acontext(): before
+inside Plugin_2.acontext(): before
+[3, -1]
+inside Plugin_2.acontext(): after
+inside Plugin_1.acontext(): after
 
 ```
 

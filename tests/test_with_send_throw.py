@@ -265,7 +265,9 @@ def test_plugins(data: st.DataObject):
 
         for s, expected in zip(sends, yields_tr[1:]):
             yielded = c.gen.send(s)
-            assert expected == yielded
+            # assert expected == yielded
+            assert list(reversed(expected)) == yielded
+            # Reversed because the context managers are executed in the reverse order after yielding.
 
         if throw:
             thrown = Thrown()

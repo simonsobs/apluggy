@@ -16,14 +16,26 @@ class With:
 
     def __getattr__(self, name: str) -> Callable[..., GenCtxManager]:
         hook: HookCaller = getattr(self.pm.hook, name)
-        call = _Call(hook)
-        return call
+        return _Call(hook)
 
 
-def _Call(hook: Callable[..., list[GenCtxManager]]) -> Callable[..., GenCtxManager]:
+class WithReverse:
+    def __init__(self, pm: PluginManager_) -> None:
+        self.pm = pm
+
+    def __getattr__(self, name: str) -> Callable[..., GenCtxManager]:
+        hook: HookCaller = getattr(self.pm.hook, name)
+        return _Call(hook, reverse=True)
+
+
+def _Call(
+    hook: Callable[..., list[GenCtxManager]], reverse: bool = False
+) -> Callable[..., GenCtxManager]:
     @contextlib.contextmanager
     def call(*args: Any, **kwargs: Any) -> Generator[list, Any, list]:
         ctxs = hook(*args, **kwargs)
+        if reverse:
+            ctxs = list(reversed(ctxs))
         with contextlib.ExitStack() as stack:
             yields = [stack.enter_context(ctx) for ctx in ctxs]
 
@@ -35,6 +47,16 @@ def _Call(hook: Callable[..., list[GenCtxManager]]) -> Callable[..., GenCtxManag
             # Instead, yield from another generator method that supports
             # `send()` and `throw()` and returns the return values of the
             # hook implementations.
+
+            # TODO: Stop yielding from _support_gen() and simply uncomment
+            # above `yield yields` as Nextline no longer uses `send()` or
+            # `throw()`. ExitStack correctly executes the code after the yield
+            # statement in the reverse order of entering the contexts and
+            # propagates exceptions from inner contexts to outer contexts.
+            # _support_gen() also executes the code after the first yield in
+            # the reverse order. However, it might not be the most sensible
+            # order if `send()` is used. _support_gen() doesn't propagate the
+            # exceptions in the same way as ExitStack.
 
             returns = yield from _support_gen(yields, ctxs)
         return returns
@@ -81,7 +103,7 @@ def _support_gen(yields: list, ctxs: list[GenCtxManager]) -> Generator[list, Any
             raise
 
         yields = []
-        for c in contexts:
+        for c in reversed(contexts):  # close in the reversed order after yielding
             y = None
             if not c.stop_iteration:
                 try:
