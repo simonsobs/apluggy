@@ -79,5 +79,5 @@ exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 profile = "black"
 
 [[tool.mypy.overrides]]
-module = ["pluggy.*"]
+module = ["pluggy.*", "apluggy.*"]
 ignore_missing_imports = true
