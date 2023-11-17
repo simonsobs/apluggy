@@ -19,8 +19,8 @@ class With:
         def call(*args: Any, **kwargs: Any) -> Generator[list, Any, list]:
             hook: HookCaller = getattr(self.pm.hook, name)
             with contextlib.ExitStack() as stack:
-                hook_impls: list[GeneratorContextManager] = hook(*args, **kwargs)
-                yields = [stack.enter_context(imp) for imp in hook_impls]
+                ctxs: list[GeneratorContextManager] = hook(*args, **kwargs)
+                yields = [stack.enter_context(ctx) for ctx in ctxs]
 
                 # yield yields
 
@@ -31,13 +31,13 @@ class With:
                 # `send()` and `throw()` and returns the return values of the
                 # hook implementations.
 
-                returns = yield from self._support_gen(yields, hook_impls)
+                returns = yield from self._support_gen(yields, ctxs)
             return returns
 
         return call
 
     def _support_gen(
-        self, yields: list, hook_impls: Iterable[GeneratorContextManager]
+        self, yields: list, ctxs: Iterable[GeneratorContextManager]
     ) -> Generator[list, Any, list]:
         '''This generator method
         1. supports `send()` through the `gen` attribute
@@ -53,7 +53,7 @@ class With:
             context: GeneratorContextManager
             stop_iteration: Optional[StopIteration] = None
 
-        contexts = [_Context(context=imp) for imp in hook_impls]
+        contexts = [_Context(context=ctx) for ctx in ctxs]
 
         while True:
             try:
