@@ -101,34 +101,38 @@ inside Plugin_1.acontext()
 
 import asyncio
 import contextlib
-from collections.abc import Generator
+from collections.abc import AsyncIterator, Callable, Generator
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, AsyncContextManager, Coroutine, Optional
 
 from exceptiongroup import BaseExceptionGroup
+from pluggy import HookCaller
 from pluggy import PluginManager as PluginManager_
+from pluggy._hooks import _Plugin
 
 
 class _AHook:
-    def __init__(self, pm: PluginManager_):
+    def __init__(self, pm: PluginManager_) -> None:
         self.pm = pm
 
-    def __getattr__(self, name):
-        async def call(*args, **kwargs):
-            hook = getattr(self.pm.hook, name)
-            coros = hook(*args, **kwargs)
+    def __getattr__(self, name: str) -> Callable[..., Coroutine[Any, Any, list]]:
+        async def call(*args: Any, **kwargs: Any) -> list:
+            hook: HookCaller = getattr(self.pm.hook, name)
+            coros: list[asyncio.Future] = hook(*args, **kwargs)
             return await asyncio.gather(*coros)
 
         return call
 
 
 class _With:
-    def __init__(self, pm: PluginManager_):
+    def __init__(self, pm: PluginManager_) -> None:
         self.pm = pm
 
-    def __getattr__(self, name):
+    def __getattr__(
+        self, name: str
+    ) -> Callable[..., contextlib._GeneratorContextManager]:
         @contextlib.contextmanager
-        def call(*args, **kwargs) -> Generator[list, Any, list]:
+        def call(*args: Any, **kwargs: Any) -> Generator[list, Any, list]:
             hook = getattr(self.pm.hook, name)
             with contextlib.ExitStack() as stack:
                 hook_impls = hook(*args, **kwargs)
@@ -208,24 +212,22 @@ class _With:
 
 
 class _AWith:
-    def __init__(self, pm: PluginManager_):
+    def __init__(self, pm: PluginManager_) -> None:
         self.pm = pm
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Callable[..., AsyncContextManager]:
         @contextlib.asynccontextmanager
-        async def call(*args, **kwargs):
-            hook = getattr(self.pm.hook, name)
+        async def call(*args: Any, **kwargs: Any) -> AsyncIterator[list]:
+            hook: HookCaller = getattr(self.pm.hook, name)
             async with contextlib.AsyncExitStack() as stack:
-                contexts = hook(*args, **kwargs)
-                yields = [
-                    await stack.enter_async_context(context) for context in contexts
-                ]
+                ctxs: list[AsyncContextManager] = hook(*args, **kwargs)
+                yields = [await stack.enter_async_context(ctx) for ctx in ctxs]
 
                 # TODO: Consider entering the contexts asynchronously as in the
                 # following commented out code.
 
                 # yields = await asyncio.gather(
-                #     *[stack.enter_async_context(context) for context in contexts]
+                #     *[stack.enter_async_context(ctx) for ctx in ctxs]
                 # )
 
                 yield yields
@@ -241,7 +243,7 @@ class _AWith:
                 #     sent = yield yields
                 #     try:
                 #         yields = await asyncio.gather(
-                #             *[context.gen.asend(sent) for context in contexts]
+                #             *[ctx.gen.asend(sent) for ctx in ctxs]
                 #         )
                 #     except StopAsyncIteration:
                 #         stop = True
@@ -250,18 +252,20 @@ class _AWith:
 
 
 class PluginManager(PluginManager_):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.ahook = _AHook(self)
         self.with_ = _With(self)
         self.awith = _AWith(self)
 
-    def register(self, plugin, name=None):
+    def register(
+        self, plugin: _Plugin | Callable[[], _Plugin], name: Optional[str] = None
+    ) -> None:
         if callable(plugin):
             plugin = plugin()
         super().register(plugin, name=name)
 
-    def get_canonical_name(self, plugin):
+    def get_canonical_name(self, plugin: _Plugin) -> str:
         '''Override to include class names in plugin names.'''
         if name := getattr(plugin, '__name__', None):
             # a module
