@@ -225,6 +225,19 @@ inside Plugin_2.context(): after
 
 ```
 
+In the reverse order:
+
+```python
+>>> with pm.with_reverse.context(arg1=1, arg2=2) as y:  # with_reverse instead of hook
+...     print(y)
+inside Plugin_1.context(): before
+inside Plugin_2.context(): before
+[3, -1]
+inside Plugin_2.context(): after
+inside Plugin_1.context(): after
+
+```
+
 #### Async context manager
 
 ```python
@@ -238,6 +251,22 @@ inside Plugin_1.acontext(): before
 [-1, 3]
 inside Plugin_1.acontext(): after
 inside Plugin_2.acontext(): after
+
+```
+
+In the reverse order:
+
+```python
+>>> async def call_acontext():
+...     async with pm.awith_reverse.acontext(arg1=1, arg2=2) as y:  # awith_reverse instead of hook
+...         print(y)
+
+>>> asyncio.run(call_acontext())
+inside Plugin_1.acontext(): before
+inside Plugin_2.acontext(): before
+[3, -1]
+inside Plugin_2.acontext(): after
+inside Plugin_1.acontext(): after
 
 ```
 
