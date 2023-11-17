@@ -93,7 +93,7 @@ def _support_gen(yields: list, ctxs: list[GenCtxManager]) -> Generator[list, Any
             raise
 
         yields = []
-        for c in contexts:
+        for c in reversed(contexts):  # close in the reversed order after yielding
             y = None
             if not c.stop_iteration:
                 try:
