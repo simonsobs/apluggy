@@ -11,36 +11,43 @@ class AWith:
         self.pm = pm
 
     def __getattr__(self, name: str) -> Callable[..., AsyncContextManager]:
-        @contextlib.asynccontextmanager
-        async def call(*args: Any, **kwargs: Any) -> AsyncIterator[list]:
-            hook: HookCaller = getattr(self.pm.hook, name)
-            async with contextlib.AsyncExitStack() as stack:
-                ctxs: list[AsyncContextManager] = hook(*args, **kwargs)
-                yields = [await stack.enter_async_context(ctx) for ctx in ctxs]
-
-                # TODO: Consider entering the contexts asynchronously as in the
-                # following commented out code.
-
-                # yields = await asyncio.gather(
-                #     *[stack.enter_async_context(ctx) for ctx in ctxs]
-                # )
-
-                yield yields
-
-                # TODO: The following commented out code is an attempt to support
-                # `asend()` through the `gen` attribute. It only works for
-                # simple cases. It doesn't work with starlette.lifespan().
-                # When starlette is shutting down, an exception is raised
-                # `RuntimeError: generator didn't stop after athrow()`.
-
-                # stop = False
-                # while not stop:
-                #     sent = yield yields
-                #     try:
-                #         yields = await asyncio.gather(
-                #             *[ctx.gen.asend(sent) for ctx in ctxs]
-                #         )
-                #     except StopAsyncIteration:
-                #         stop = True
-
+        hook: HookCaller = getattr(self.pm.hook, name)
+        call = _Call(hook)
         return call
+
+
+def _Call(
+    hook: Callable[..., list[AsyncContextManager]]
+) -> Callable[..., AsyncContextManager]:
+    @contextlib.asynccontextmanager
+    async def call(*args: Any, **kwargs: Any) -> AsyncIterator[list]:
+        ctxs = hook(*args, **kwargs)
+        async with contextlib.AsyncExitStack() as stack:
+            yields = [await stack.enter_async_context(ctx) for ctx in ctxs]
+
+            # TODO: Consider entering the contexts asynchronously as in the
+            # following commented out code.
+
+            # yields = await asyncio.gather(
+            #     *[stack.enter_async_context(ctx) for ctx in ctxs]
+            # )
+
+            yield yields
+
+            # TODO: The following commented out code is an attempt to support
+            # `asend()` through the `gen` attribute. It only works for
+            # simple cases. It doesn't work with starlette.lifespan().
+            # When starlette is shutting down, an exception is raised
+            # `RuntimeError: generator didn't stop after athrow()`.
+
+            # stop = False
+            # while not stop:
+            #     sent = yield yields
+            #     try:
+            #         yields = await asyncio.gather(
+            #             *[ctx.gen.asend(sent) for ctx in ctxs]
+            #         )
+            #     except StopAsyncIteration:
+            #         stop = True
+
+    return call
