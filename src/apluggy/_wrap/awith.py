@@ -44,20 +44,4 @@ def _Call(
 
             yield yields
 
-            # TODO: The following commented out code is an attempt to support
-            # `asend()` through the `gen` attribute. It only works for
-            # simple cases. It doesn't work with starlette.lifespan().
-            # When starlette is shutting down, an exception is raised
-            # `RuntimeError: generator didn't stop after athrow()`.
-
-            # stop = False
-            # while not stop:
-            #     sent = yield yields
-            #     try:
-            #         yields = await asyncio.gather(
-            #             *[ctx.gen.asend(sent) for ctx in ctxs]
-            #         )
-            #     except StopAsyncIteration:
-            #         stop = True
-
     return call
