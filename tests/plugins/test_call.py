@@ -51,6 +51,11 @@ async def test_awith(pm: PluginManager):
         assert r == [-1, -1, 3]
 
 
+async def test_awith_reverse(pm: PluginManager):
+    async with pm.awith_reverse.acontext(arg1=1, arg2=2) as r:
+        assert r == [3, -1, -1]
+
+
 def test_name(pm: PluginManager):
     id_ = id(pm.list_name_plugin()[1][1])  # the object id of the 2nd plugin
 

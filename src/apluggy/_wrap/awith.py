@@ -12,16 +12,26 @@ class AWith:
 
     def __getattr__(self, name: str) -> Callable[..., AsyncContextManager]:
         hook: HookCaller = getattr(self.pm.hook, name)
-        call = _Call(hook)
-        return call
+        return _Call(hook)
+
+
+class AWithReverse:
+    def __init__(self, pm: PluginManager_) -> None:
+        self.pm = pm
+
+    def __getattr__(self, name: str) -> Callable[..., AsyncContextManager]:
+        hook: HookCaller = getattr(self.pm.hook, name)
+        return _Call(hook, reverse=True)
 
 
 def _Call(
-    hook: Callable[..., list[AsyncContextManager]]
+    hook: Callable[..., list[AsyncContextManager]], reverse: bool = False
 ) -> Callable[..., AsyncContextManager]:
     @contextlib.asynccontextmanager
     async def call(*args: Any, **kwargs: Any) -> AsyncIterator[list]:
         ctxs = hook(*args, **kwargs)
+        if reverse:
+            ctxs = list(reversed(ctxs))
         async with contextlib.AsyncExitStack() as stack:
             yields = [await stack.enter_async_context(ctx) for ctx in ctxs]
 
