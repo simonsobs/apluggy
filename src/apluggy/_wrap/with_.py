@@ -11,21 +11,13 @@ GenCtxManager = contextlib._GeneratorContextManager
 
 
 class With:
-    def __init__(self, pm: PluginManager_) -> None:
+    def __init__(self, pm: PluginManager_, reverse: bool = False) -> None:
         self.pm = pm
+        self.reverse = reverse
 
     def __getattr__(self, name: str) -> Callable[..., GenCtxManager]:
         hook: HookCaller = getattr(self.pm.hook, name)
-        return _Call(hook)
-
-
-class WithReverse:
-    def __init__(self, pm: PluginManager_) -> None:
-        self.pm = pm
-
-    def __getattr__(self, name: str) -> Callable[..., GenCtxManager]:
-        hook: HookCaller = getattr(self.pm.hook, name)
-        return _Call(hook, reverse=True)
+        return _Call(hook, reverse=self.reverse)
 
 
 def _Call(

@@ -6,7 +6,7 @@ from pluggy._hooks import _Plugin
 
 from .ahook import AHook
 from .awith import AWith, AWithReverse
-from .with_ import With, WithReverse
+from .with_ import With
 
 
 class PluginManager(PluginManager_):
@@ -116,7 +116,7 @@ class PluginManager(PluginManager_):
         super().__init__(*args, **kwargs)
         self.ahook = AHook(self)
         self.with_ = With(self)
-        self.with_reverse = WithReverse(self)
+        self.with_reverse = With(self, reverse=True)
         self.awith = AWith(self)
         self.awith_reverse = AWithReverse(self)
 
