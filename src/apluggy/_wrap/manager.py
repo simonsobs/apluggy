@@ -5,7 +5,7 @@ from pluggy import PluginManager as PluginManager_
 from pluggy._hooks import _Plugin
 
 from .ahook import AHook
-from .awith import AWith, AWithReverse
+from .awith import AWith
 from .with_ import With
 
 
@@ -118,7 +118,7 @@ class PluginManager(PluginManager_):
         self.with_ = With(self)
         self.with_reverse = With(self, reverse=True)
         self.awith = AWith(self)
-        self.awith_reverse = AWithReverse(self)
+        self.awith_reverse = AWith(self, reverse=True)
 
     def register(
         self, plugin: _Plugin | Callable[[], _Plugin], name: Optional[str] = None

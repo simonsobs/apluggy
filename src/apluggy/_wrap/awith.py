@@ -7,21 +7,13 @@ from pluggy import PluginManager as PluginManager_
 
 
 class AWith:
-    def __init__(self, pm: PluginManager_) -> None:
+    def __init__(self, pm: PluginManager_, reverse: bool = False) -> None:
         self.pm = pm
+        self.reverse = reverse
 
     def __getattr__(self, name: str) -> Callable[..., AsyncContextManager]:
         hook: HookCaller = getattr(self.pm.hook, name)
-        return _Call(hook)
-
-
-class AWithReverse:
-    def __init__(self, pm: PluginManager_) -> None:
-        self.pm = pm
-
-    def __getattr__(self, name: str) -> Callable[..., AsyncContextManager]:
-        hook: HookCaller = getattr(self.pm.hook, name)
-        return _Call(hook, reverse=True)
+        return _Call(hook, reverse=self.reverse)
 
 
 def _Call(
