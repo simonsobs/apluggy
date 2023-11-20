@@ -48,15 +48,12 @@ def _Call(
             # `send()` and `throw()` and returns the return values of the
             # hook implementations.
 
-            # TODO: Stop yielding from _support_gen() and simply uncomment
-            # above `yield yields` as Nextline no longer uses `send()` or
-            # `throw()`. ExitStack correctly executes the code after the yield
+            # NOTE: ExitStack correctly executes the code after the yield
             # statement in the reverse order of entering the contexts and
             # propagates exceptions from inner contexts to outer contexts.
-            # _support_gen() also executes the code after the first yield in
-            # the reverse order. However, it might not be the most sensible
-            # order if `send()` is used. _support_gen() doesn't propagate the
-            # exceptions in the same way as ExitStack.
+            # _support_gen() executes the code after the first yield in the
+            # reverse order. _support_gen() doesn't propagate the exceptions in
+            # the same way as ExitStack.
 
             returns = yield from _support_gen(yields, ctxs)
         return returns
