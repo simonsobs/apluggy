@@ -15,42 +15,41 @@ class With:
         self.pm = pm
         self.reverse = reverse
 
-    def __getattr__(self, name: str) -> Callable[..., GenCtxManager]:
+    def __getattr__(self, name: str) -> Callable[..., GenCtxManager[list]]:
         hook: HookCaller = getattr(self.pm.hook, name)
-        return _Call(hook, reverse=self.reverse)
+
+        def call(*args: Any, **kwargs: Any) -> GenCtxManager[list]:
+            ctxs = hook(*args, **kwargs)
+            if self.reverse:
+                ctxs = list(reversed(ctxs))
+            return _cm_gen(ctxs)
+
+        return call
 
 
-def _Call(
-    hook: Callable[..., list[GenCtxManager]], reverse: bool = False
-) -> Callable[..., GenCtxManager]:
-    @contextlib.contextmanager
-    def call(*args: Any, **kwargs: Any) -> Generator[list, Any, list]:
-        ctxs = hook(*args, **kwargs)
-        if reverse:
-            ctxs = list(reversed(ctxs))
-        with contextlib.ExitStack() as stack:
-            yields = [stack.enter_context(ctx) for ctx in ctxs]
+@contextlib.contextmanager
+def _cm_gen(ctxs: list[GenCtxManager]) -> Generator[list, Any, list]:
+    with contextlib.ExitStack() as stack:
+        yields = [stack.enter_context(ctx) for ctx in ctxs]
 
-            # yield yields
+        # yield yields
 
-            # This function could end here with the above line uncommented
-            # for a normal usage of context managers.
+        # This function could end here with the above line uncommented
+        # for a normal usage of context managers.
 
-            # Instead, yield from another generator method that supports
-            # `send()` and `throw()` and returns the return values of the
-            # hook implementations.
+        # Instead, yield from another generator method that supports
+        # `send()` and `throw()` and returns the return values of the
+        # hook implementations.
 
-            # NOTE: ExitStack correctly executes the code after the yield
-            # statement in the reverse order of entering the contexts and
-            # propagates exceptions from inner contexts to outer contexts.
-            # _support_gen() executes the code after the first yield in the
-            # reverse order. _support_gen() doesn't propagate the exceptions in
-            # the same way as ExitStack.
+        # NOTE: ExitStack correctly executes the code after the yield
+        # statement in the reverse order of entering the contexts and
+        # propagates exceptions from inner contexts to outer contexts.
+        # _support_gen() executes the code after the first yield in the
+        # reverse order. _support_gen() doesn't propagate the exceptions in
+        # the same way as ExitStack.
 
-            returns = yield from _support_gen(yields, ctxs)
-        return returns
-
-    return call
+        returns = yield from _support_gen(yields, ctxs)
+    return returns
 
 
 def _support_gen(yields: list, ctxs: list[GenCtxManager]) -> Generator[list, Any, list]:
