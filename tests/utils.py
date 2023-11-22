@@ -48,7 +48,7 @@ class Probe:
 
     def _fmt_tag(self, tag: Any) -> str:
         match tag:
-            case Exception():
+            case BaseException():
                 return tag.__class__.__name__
             case _:
                 return f'{tag}'
