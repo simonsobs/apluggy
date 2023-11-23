@@ -8,6 +8,11 @@ T = TypeVar('T')
 
 
 class RecordReturns(Generic[P, T]):
+    '''Store the return values of a function so that they can be repeated by ReplayReturns.
+
+    This class is primarily used to wrap the draw function from Hypothesis.
+    '''
+
     def __init__(self, f: Callable[P, T]):
         self.f = f
         self.returns = list[T]()
@@ -22,6 +27,8 @@ class RecordReturns(Generic[P, T]):
 
 
 class ReplayReturns(Generic[P, T]):
+    '''Repeat the return values of a function that were recorded by RecordReturns.'''
+
     def __init__(self, record: RecordReturns[P, T]):
         self.returns = deque(record.returns)
 
@@ -34,7 +41,33 @@ class ReplayReturns(Generic[P, T]):
 
 
 class Probe:
-    '''Record where calls are made.'''
+    '''Record where calls are made.
+
+    This class is used to assert that expected lines of code are executed in a test.
+
+    >>> def f(probe: Probe):
+    ...     probe()
+    ...     probe('tag')
+    ...
+    ...     try:
+    ...         raise Exception('msg')
+    ...     except Exception as e:
+    ...         probe(e)
+    ...
+    ...     try:
+    ...         raise KeyboardInterrupt()
+    ...     except BaseException as e:
+    ...         probe(e)
+
+
+    >>> probe1 = Probe()
+    >>> probe2 = Probe()
+    >>> f(probe1)
+    >>> f(probe2)
+    >>> probe1.calls == probe2.calls
+    True
+
+    '''
 
     def __init__(self) -> None:
         self.calls = list[str]()
@@ -48,6 +81,8 @@ class Probe:
 
     def _fmt_tag(self, tag: Any) -> str:
         match tag:
+            case Exception():
+                return repr(tag)
             case BaseException():
                 return tag.__class__.__name__
             case _:
