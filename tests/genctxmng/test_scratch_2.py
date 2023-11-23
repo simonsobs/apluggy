@@ -13,16 +13,6 @@ T = TypeVar('T')
 GenCtxManager = contextlib._GeneratorContextManager
 
 
-def test_probe():
-    def f(probe: Probe):
-        probe()
-        probe()
-
-    probe1 = Probe()
-    probe2 = Probe()
-    assert probe1.calls == probe2.calls
-
-
 class Thrown(Exception):
     '''To be thrown to the context manager.
 
@@ -71,22 +61,11 @@ def context(draw: st.DrawFn, probe: Probe, id: int, n_sends: int = 0):
     probe(id)
 
 
-class Impl(Protocol, Generic[T]):
-    def __call__(
-        self,
-        contexts: Sequence[GenCtxManager[T]],
-        draw: st.DrawFn,
-        yields: MutableSequence[list[T]],
-        n_sends: int = 0,
-    ) -> None:
-        ...
-
-
 def with_single_context(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     assert len(contexts) == 1
     ctx = contexts[0]
@@ -119,7 +98,7 @@ def with_double_contexts(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     assert len(contexts) == 2
     ctx1, ctx2 = contexts
@@ -157,7 +136,7 @@ def with_triple_contexts(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     assert len(contexts) == 3
     ctx1, ctx2, ctx3 = contexts
@@ -195,7 +174,7 @@ def nested_with(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     match len(contexts):
         case 1:
@@ -213,7 +192,7 @@ def enter_single_context(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     assert len(contexts) == 1
     ctx = contexts[0]
@@ -254,7 +233,7 @@ def enter_double_contexts(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     assert len(contexts) == 2
     ctx1, ctx2 = contexts
@@ -307,7 +286,7 @@ def enter_multiple_contexts(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     entered = list[GenCtxManager]()
     try:
@@ -373,7 +352,7 @@ def call_enter(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     match len(contexts):
         case 1:
@@ -389,7 +368,7 @@ def with_exit_stack(
     contexts: Iterable[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ):
     assert n_sends == 0
     with contextlib.ExitStack() as stack:
@@ -399,8 +378,19 @@ def with_exit_stack(
             raise Raised()
 
 
+class Impl(Protocol, Generic[T]):
+    def __call__(
+        self,
+        contexts: Sequence[GenCtxManager[T]],
+        draw: st.DrawFn,
+        yields: MutableSequence[list[T]],
+        n_sends: int,
+    ) -> None:
+        ...
+
+
 def run(
-    draw: st.DrawFn, impl: Impl[T], n_contexts, n_sends: int = 0
+    draw: st.DrawFn, impl: Impl[T], n_contexts, n_sends: int
 ) -> tuple[Probe, list[list[T]]]:
     probe = Probe()
     contexts = [
@@ -421,7 +411,7 @@ def dev(
     contexts: Sequence[GenCtxManager[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
-    n_sends: int = 0,
+    n_sends: int,
 ) -> None:
     entered = list[GenCtxManager]()
     try:
