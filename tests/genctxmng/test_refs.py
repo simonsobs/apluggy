@@ -94,7 +94,7 @@ def test_refs(data: st.DataObject):
     # n_sends = 1
     draw = RecordReturns(data.draw)
 
-    ref_imp = nested_with
+    ref_imp = with_single_context
 
     # Run on a reference implementation.
     probe0, yields0 = run(
