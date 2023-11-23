@@ -47,25 +47,30 @@ def with_single_context(
     yields: MutableSequence[list[T]],
     n_sends: int,
 ) -> None:
-    with (s := stack_with_single(contexts=contexts)) as ys:
-        yields.append(ys)
+    ctx = stack_with_single(contexts=contexts)
+    run_generator_context(ctx=ctx, draw=draw, yields=yields, n_sends=n_sends)
+
+
+def run_generator_context(
+    ctx: GenCtxManager[T], draw: st.DrawFn, yields: MutableSequence[T], n_sends: int
+) -> None:
+    with ctx as y:
+        yields.append(y)
         if draw(st.booleans()):
             raise Raised('w-s')
         for i in range(n_sends, 0, -1):
-            ys = []
             action = draw(st.sampled_from(['send', 'throw', 'close']))
             try:
                 match action:
                     case 'send':
-                        ys = s.gen.send(f'send({i})')
+                        y = ctx.gen.send(f'send({i})')
+                        yields.append(y)
                     case 'throw':
-                        s.gen.throw(Thrown(f'{i}'))
+                        ctx.gen.throw(Thrown(f'{i}'))
                     case 'close':
-                        s.gen.close()
+                        ctx.gen.close()
             except StopIteration:
                 break
-
-            yields.append(ys)
 
             if draw(st.booleans()):
                 raise Raised(f'w-{i}')
