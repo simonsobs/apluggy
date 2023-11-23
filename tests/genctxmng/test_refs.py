@@ -13,7 +13,7 @@ T = TypeVar('T')
 
 
 @contextlib.contextmanager
-def context(
+def mock_context(
     draw: st.DrawFn, probe: Probe, id: int, n_sends: int = 0
 ) -> Generator[Any, Any, Any]:
     probe(id)
@@ -54,7 +54,7 @@ def run(
 ) -> tuple[Probe, list[list[T]]]:
     probe = Probe()
     contexts = [
-        context(draw=draw, probe=probe, id=i, n_sends=n_sends)
+        mock_context(draw=draw, probe=probe, id=i, n_sends=n_sends)
         for i in range(n_contexts)
     ]
     yields = list[Any]()
