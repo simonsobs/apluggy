@@ -10,7 +10,7 @@ from .utils import RecordReturns, ReplayReturns
 @given(st.data())
 # @settings(max_examples=1000)
 def test_refs(data: st.DataObject):
-    n_contexts = data.draw(st.integers(min_value=1, max_value=3), label='n_contexts')
+    n_contexts = data.draw(st.integers(min_value=1, max_value=2), label='n_contexts')
 
     n_sends = data.draw(st.integers(min_value=0, max_value=5), label='n_sends')
     # n_sends = 1
@@ -35,7 +35,7 @@ def test_refs(data: st.DataObject):
     assert yields0 == yields1
 
     # Compare with manual enter/exit implementation.
-    if n_contexts <= 1:
+    if n_contexts <= 2:
         replay = ReplayReturns(draw)
         probe1, yields1 = run(
             draw=replay, stack=dunder_enter, n_contexts=n_contexts, n_sends=n_sends
