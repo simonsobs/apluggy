@@ -48,6 +48,7 @@ def mock_context(
         raise Raised(f'c-{id}-s')
 
     for i in range(n_sends, draw(st.integers(min_value=0, max_value=n_sends)), -1):
+        probe(id, i)
         try:
             sent = yield f'yield {id} ({i})'
             probe(id, i, sent)
@@ -57,6 +58,7 @@ def mock_context(
         except (Raised, Thrown) as e:
             probe(id, i, e)
             if draw(st.booleans()):
+                probe(id, i)
                 raise
         probe(id, i)
         if draw(st.booleans()):
@@ -70,6 +72,7 @@ def mock_context(
     except (Raised, Thrown) as e:
         probe(id, e)
         if draw(st.booleans()):
+            probe(id, e)
             raise
 
     probe(id)
