@@ -28,6 +28,9 @@ def run(
         probe()
     except (Raised, Thrown) as e:
         probe(e)
+    except RuntimeError as e:
+        # generator didn't stop
+        probe(e)
 
     return probe, yields
 
@@ -46,9 +49,13 @@ def mock_context(
         try:
             sent = yield f'yield {id} ({i})'
             probe(id, i, sent)
-        except (Raised, Thrown, GeneratorExit) as e:
+        except GeneratorExit as e:
             probe(id, i, e)
-            raise  # otherwise RuntimeError('generator didn't stop') by contextlib
+            raise  # otherwise RuntimeError: generator ignored GeneratorExit
+        except (Raised, Thrown) as e:
+            probe(id, i, e)
+            if draw(st.booleans()):
+                raise
         probe(id, i)
         if draw(st.booleans()):
             probe(id, i)
@@ -60,7 +67,8 @@ def mock_context(
         probe(id)
     except (Raised, Thrown) as e:
         probe(id, e)
-        raise  # So that the outer generator context managers stop.
+        if draw(st.booleans()):
+            raise
 
     probe(id)
     if draw(st.booleans()):
@@ -88,6 +96,9 @@ def run_generator_context(
                     case 'close':
                         ctx.gen.close()
             except StopIteration:
+                break
+            except RuntimeError:
+                # generator didn't stop
                 break
 
             if draw(st.booleans()):
