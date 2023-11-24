@@ -24,7 +24,9 @@ def run(
     ctx = stack(contexts)
     yields = list[Any]()
     try:
-        run_generator_context(ctx=ctx, draw=draw, yields=yields, n_sends=n_sends)
+        run_generator_context(
+            ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends
+        )
         probe()
     except (Raised, Thrown) as e:
         probe(e)
@@ -78,14 +80,22 @@ def mock_context(
 
 
 def run_generator_context(
-    ctx: GenCtxManager[T], draw: st.DrawFn, yields: MutableSequence[T], n_sends: int
+    ctx: GenCtxManager[T],
+    draw: st.DrawFn,
+    probe: Probe,
+    yields: MutableSequence[T],
+    n_sends: int,
 ) -> None:
+    probe()
     with ctx as y:
+        probe()
         yields.append(y)
         if draw(st.booleans()):
+            probe()
             raise Raised('w-s')
         for i in range(n_sends, 0, -1):
             action = draw(st.sampled_from(['send', 'throw', 'close']))
+            probe(i, action)
             try:
                 match action:
                     case 'send':
@@ -96,10 +106,14 @@ def run_generator_context(
                     case 'close':
                         ctx.gen.close()
             except StopIteration:
+                probe()
                 break
             except RuntimeError:
                 # generator didn't stop
+                probe()
                 break
 
             if draw(st.booleans()):
+                probe()
                 raise Raised(f'w-{i}')
+    probe()
