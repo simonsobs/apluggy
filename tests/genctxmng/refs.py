@@ -12,6 +12,12 @@ class Stack(Protocol, Generic[T]):
         ...
 
 
+@contextlib.contextmanager
+def exit_stack(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+    with contextlib.ExitStack() as stack:
+        yield [stack.enter_context(ctx) for ctx in ctxs]
+
+
 def stack_with(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
     match len(ctxs):
         case 1:
