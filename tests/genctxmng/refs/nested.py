@@ -1,5 +1,6 @@
 import contextlib
 from collections.abc import Generator, Sequence
+import sys
 from typing import Any, TypeVar
 
 from .types import GenCtxMngr
@@ -45,17 +46,38 @@ def nested_with_double(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
         ys = [y0, y1]
         while active:
             sent = yield ys
+            exc_info = sys.exc_info()
+            assert exc_info == (None, None, None)
             ys = []
-            try:
+
+            if ctx1 in active:
                 try:
-                    if ctx1 in active:
-                        y1 = ctx1.gen.send(sent)
-                        ys.append(y1)
+                    y1 = ctx1.gen.send(sent)
+                    ys.append(y1)
                 except StopIteration:
                     active.remove(ctx1)
+                except Exception:
+                    active.remove(ctx1)
+                    exc_info = sys.exc_info()
 
-                if ctx0 in active:
-                    y0 = ctx0.gen.send(sent)
-                    ys.append(y0)
-            except StopIteration:
-                active.remove(ctx0)
+            if ctx0 in active:
+                if exc_info == (None, None, None):
+                    try:
+                        y0 = ctx0.gen.send(sent)
+                        ys.append(y0)
+                    except StopIteration:
+                        active.remove(ctx0)
+                    except Exception:
+                        active.remove(ctx0)
+                        exc_info = sys.exc_info()
+                else:
+                    active.remove(ctx0)
+                    try:
+                        if ctx0.__exit__(*exc_info):
+                            exc_info = (None, None, None)
+                    except Exception:
+                        exc_info = sys.exc_info()
+
+            if exc_info != (None, None, None):
+                assert isinstance(exc_info[1], BaseException)
+                raise exc_info[1].with_traceback(exc_info[2])
