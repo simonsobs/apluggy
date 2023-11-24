@@ -10,6 +10,8 @@ T = TypeVar('T')
 
 def dunder_enter(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
     match len(ctxs):
+        case 0:
+            return dunder_enter_null(ctxs)
         case 1:
             return dunder_enter_single(ctxs)
         case 2:
@@ -18,6 +20,12 @@ def dunder_enter(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
         #     return stack_with_triple(ctxs)
         case _:
             raise NotImplementedError()
+
+
+@contextlib.contextmanager
+def dunder_enter_null(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+    assert not ctxs
+    yield []
 
 
 @contextlib.contextmanager

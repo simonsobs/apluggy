@@ -10,6 +10,8 @@ T = TypeVar('T')
 
 def nested_with(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
     match len(ctxs):
+        case 0:
+            return nested_with_null(ctxs)
         case 1:
             return nested_with_single(ctxs)
         case 2:
@@ -18,6 +20,12 @@ def nested_with(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
             return nested_with_triple(ctxs)
         case _:
             raise NotImplementedError()
+
+
+@contextlib.contextmanager
+def nested_with_null(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+    assert not ctxs
+    yield []
 
 
 @contextlib.contextmanager
