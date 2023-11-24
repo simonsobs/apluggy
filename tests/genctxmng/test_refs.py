@@ -1,7 +1,7 @@
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from .refs import exit_stack, nested_with
+from .refs import dunder_enter, exit_stack, nested_with
 from .runner import run
 from .utils import RecordReturns, ReplayReturns
 
@@ -30,6 +30,14 @@ def test_refs(data: st.DataObject):
         draw=replay, stack=ref_imp, n_contexts=n_contexts, n_sends=n_sends
     )
 
+    assert probe0.calls == probe1.calls
+    assert yields0 == yields1
+
+    # Compare with manual enter/exit implementation.
+    replay = ReplayReturns(draw)
+    probe1, yields1 = run(
+        draw=replay, stack=dunder_enter, n_contexts=n_contexts, n_sends=n_sends
+    )
     assert probe0.calls == probe1.calls
     assert yields0 == yields1
 
