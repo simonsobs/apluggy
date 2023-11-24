@@ -10,7 +10,7 @@ from .utils import RecordReturns, ReplayReturns
 @given(st.data())
 # @settings(max_examples=1000)
 def test_refs(data: st.DataObject):
-    n_contexts = data.draw(st.integers(min_value=1, max_value=2), label='n_contexts')
+    n_contexts = data.draw(st.integers(min_value=1, max_value=3), label='n_contexts')
 
     n_sends = data.draw(st.integers(min_value=0, max_value=5), label='n_sends')
     # n_sends = 1
