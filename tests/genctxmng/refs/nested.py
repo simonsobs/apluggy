@@ -87,7 +87,7 @@ def nested_with_double(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
 def nested_with_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 3
     ctx0, ctx1, ctx2 = ctxs
-    active = set(ctxs)
+    active = list(reversed(ctxs))
     with ctx0 as y0, ctx1 as y1, ctx2 as y2:
         ys = [y0, y1, y2]
         while active:
@@ -96,48 +96,20 @@ def nested_with_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
             assert exc_info == (None, None, None)
             ys = []
 
-            if ctx2 in active:
-                try:
-                    y = ctx2.gen.send(sent)
-                    ys.append(y)
-                except StopIteration:
-                    active.remove(ctx2)
-                except Exception:
-                    active.remove(ctx2)
-                    exc_info = sys.exc_info()
-
-            if ctx1 in active:
+            for ctx in list(active):
                 if exc_info == (None, None, None):
                     try:
-                        y = ctx1.gen.send(sent)
+                        y = ctx.gen.send(sent)
                         ys.append(y)
                     except StopIteration:
-                        active.remove(ctx1)
+                        active.remove(ctx)
                     except Exception:
-                        active.remove(ctx1)
+                        active.remove(ctx)
                         exc_info = sys.exc_info()
                 else:
-                    active.remove(ctx1)
+                    active.remove(ctx)
                     try:
-                        if ctx1.__exit__(*exc_info):
-                            exc_info = (None, None, None)
-                    except Exception:
-                        exc_info = sys.exc_info()
-
-            if ctx0 in active:
-                if exc_info == (None, None, None):
-                    try:
-                        y = ctx0.gen.send(sent)
-                        ys.append(y)
-                    except StopIteration:
-                        active.remove(ctx0)
-                    except Exception:
-                        active.remove(ctx0)
-                        exc_info = sys.exc_info()
-                else:
-                    active.remove(ctx0)
-                    try:
-                        if ctx0.__exit__(*exc_info):
+                        if ctx.__exit__(*exc_info):
                             exc_info = (None, None, None)
                     except Exception:
                         exc_info = sys.exc_info()
