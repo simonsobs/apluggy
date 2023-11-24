@@ -5,6 +5,7 @@ from typing import Any, Generator, TypeVar
 from hypothesis import strategies as st
 
 from .exc import Raised, Thrown
+from .refs import Stack
 from .utils import Probe
 
 T = TypeVar('T')
@@ -12,9 +13,28 @@ T = TypeVar('T')
 GenCtxManager = contextlib._GeneratorContextManager
 
 
+def run(
+    draw: st.DrawFn, stack: Stack[T], n_contexts, n_sends: int
+) -> tuple[Probe, list[list[T]]]:
+    probe = Probe()
+    contexts = [
+        mock_context(draw=draw, probe=probe, id=i, n_sends=n_sends)
+        for i in range(n_contexts)
+    ]
+    ctx = stack(contexts)
+    yields = list[Any]()
+    try:
+        run_generator_context(ctx=ctx, draw=draw, yields=yields, n_sends=n_sends)
+        probe()
+    except (Raised, Thrown) as e:
+        probe(e)
+
+    return probe, yields
+
+
 @contextlib.contextmanager
 def mock_context(
-    draw: st.DrawFn, probe: Probe, id: int, n_sends: int = 0
+    draw: st.DrawFn, probe: Probe, id: int, n_sends: int
 ) -> Generator[Any, Any, Any]:
     probe(id)
 
