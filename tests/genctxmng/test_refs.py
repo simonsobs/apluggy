@@ -5,9 +5,9 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from .exc import Raised, Thrown
-from .refs import GenCtxManager, Impl, with_single_context
-from .utils import Probe, RecordReturns, ReplayReturns
+from .refs import GenCtxMngr, Impl, with_single_context
 from .runner import mock_context
+from .utils import Probe, RecordReturns, ReplayReturns
 
 T = TypeVar('T')
 
@@ -31,7 +31,7 @@ def run(
 
 
 def nested_with(
-    contexts: Sequence[GenCtxManager[T]],
+    contexts: Sequence[GenCtxMngr[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
     n_sends: int,

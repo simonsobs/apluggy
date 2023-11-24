@@ -8,13 +8,13 @@ from .runner import run_generator_context
 
 T = TypeVar('T')
 
-GenCtxManager = contextlib._GeneratorContextManager
+GenCtxMngr = contextlib._GeneratorContextManager
 
 
 class Impl(Protocol, Generic[T]):
     def __call__(
         self,
-        contexts: Sequence[GenCtxManager[T]],
+        contexts: Sequence[GenCtxMngr[T]],
         draw: st.DrawFn,
         yields: MutableSequence[list[T]],
         n_sends: int,
@@ -23,11 +23,9 @@ class Impl(Protocol, Generic[T]):
 
 
 @contextlib.contextmanager
-def stack_with_single(
-    contexts: Sequence[GenCtxManager[T]],
-) -> Generator[list[T], Any, Any]:
-    assert len(contexts) == 1
-    ctx = contexts[0]
+def stack_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+    assert len(ctxs) == 1
+    ctx = ctxs[0]
     with ctx as y:
         ys = [y]
         sent = yield ys
@@ -42,10 +40,10 @@ def stack_with_single(
 
 
 def with_single_context(
-    contexts: Sequence[GenCtxManager[T]],
+    contexts: Sequence[GenCtxMngr[T]],
     draw: st.DrawFn,
     yields: MutableSequence[list[T]],
     n_sends: int,
 ) -> None:
-    ctx = stack_with_single(contexts=contexts)
+    ctx = stack_with_single(ctxs=contexts)
     run_generator_context(ctx=ctx, draw=draw, yields=yields, n_sends=n_sends)
