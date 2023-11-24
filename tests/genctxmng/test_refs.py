@@ -1,7 +1,7 @@
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from .refs import stack_with, exit_stack
+from .refs import exit_stack, nested_with
 from .runner import run
 from .utils import RecordReturns, ReplayReturns
 
@@ -15,7 +15,7 @@ def test_refs(data: st.DataObject):
     # n_sends = 1
     draw = RecordReturns(data.draw)
 
-    ref_imp = stack_with
+    ref_imp = nested_with
 
     # Run on a reference implementation.
     probe0, yields0 = run(

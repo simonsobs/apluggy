@@ -18,10 +18,10 @@ def exit_stack(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
         yield [stack.enter_context(ctx) for ctx in ctxs]
 
 
-def stack_with(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
+def nested_with(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
     match len(ctxs):
         case 1:
-            return stack_with_single(ctxs)
+            return nested_with_single(ctxs)
         # case 2:
         #     return stack_with_double(ctxs)
         # case 3:
@@ -31,7 +31,7 @@ def stack_with(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
 
 
 @contextlib.contextmanager
-def stack_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+def nested_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 1
     ctx = ctxs[0]
     with ctx as y:
