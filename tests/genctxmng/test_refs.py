@@ -34,7 +34,7 @@ def test_refs(data: st.DataObject):
     assert yields0 == yields1
 
     # Compare with manual enter/exit implementation.
-    if n_contexts <= 2:
+    if n_contexts <= 3:
         replay = ReplayReturns(draw)
         probe1, yields1 = run(
             draw=replay, stack=dunder_enter, n_contexts=n_contexts, n_sends=n_sends
