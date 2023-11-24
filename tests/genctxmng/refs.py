@@ -22,6 +22,11 @@ class Impl(Protocol, Generic[T]):
         ...
 
 
+class Stack(Protocol, Generic[T]):
+    def __call__(self, ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
+        ...
+
+
 @contextlib.contextmanager
 def stack_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 1
@@ -45,5 +50,6 @@ def with_single_context(
     yields: MutableSequence[list[T]],
     n_sends: int,
 ) -> None:
-    ctx = stack_with_single(ctxs=contexts)
+    stack: Stack = stack_with_single
+    ctx = stack(ctxs=contexts)
     run_generator_context(ctx=ctx, draw=draw, yields=yields, n_sends=n_sends)
