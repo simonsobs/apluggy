@@ -18,6 +18,8 @@ def nested_with(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
             return nested_with_double(ctxs)
         case 3:
             return nested_with_triple(ctxs)
+        case 4:
+            return nested_with_quadruple(ctxs)
         case _:
             raise NotImplementedError()
 
@@ -98,6 +100,44 @@ def nested_with_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
     active = list(reversed(ctxs))
     with ctx0 as y0, ctx1 as y1, ctx2 as y2:
         ys = [y0, y1, y2]
+        while active:
+            sent = yield ys
+            exc_info = sys.exc_info()
+            assert exc_info == (None, None, None)
+            ys = []
+
+            for ctx in list(active):
+                if exc_info == (None, None, None):
+                    try:
+                        y = ctx.gen.send(sent)
+                        ys.append(y)
+                    except StopIteration:
+                        active.remove(ctx)
+                    except Exception:
+                        active.remove(ctx)
+                        exc_info = sys.exc_info()
+                else:
+                    active.remove(ctx)
+                    try:
+                        if ctx.__exit__(*exc_info):
+                            exc_info = (None, None, None)
+                    except Exception:
+                        exc_info = sys.exc_info()
+
+            if exc_info != (None, None, None):
+                assert isinstance(exc_info[1], BaseException)
+                raise exc_info[1].with_traceback(exc_info[2])
+
+
+@contextlib.contextmanager
+def nested_with_quadruple(
+    ctxs: Sequence[GenCtxMngr[T]],
+) -> Generator[list[T], Any, Any]:
+    assert len(ctxs) == 4
+    ctx0, ctx1, ctx2, ctx3 = ctxs
+    active = list(reversed(ctxs))
+    with ctx0 as y0, ctx1 as y1, ctx2 as y2, ctx3 as y3:
+        ys = [y0, y1, y2, y3]
         while active:
             sent = yield ys
             exc_info = sys.exc_info()
