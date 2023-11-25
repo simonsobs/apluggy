@@ -1,7 +1,10 @@
 import contextlib
 import sys
 from collections.abc import Generator, Sequence
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from _typeshed import OptExcInfo
 
 T = TypeVar('T')
 
@@ -12,8 +15,6 @@ GenCtxMngr = contextlib._GeneratorContextManager
 def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     '''Manage multiple context managers with the support of the `gen` attribute.'''
 
-    exc_info = sys.exc_info()  # for type hint. should be (None, None, None)
-    exc_info = (None, None, None)  # set explicitly to ensure
     try:
         entered = list[GenCtxMngr]()
         ys = []
@@ -25,11 +26,11 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
         sent = yield ys
 
         while entered:
-            exc_info = (None, None, None)
+            exc_info_: OptExcInfo = (None, None, None)
 
             ys = []
             for ctx in list(reversed(entered)):
-                if exc_info == (None, None, None):
+                if exc_info_ == (None, None, None):
                     try:
                         y = ctx.gen.send(sent)
                         ys.append(y)
@@ -37,23 +38,25 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
                         entered.remove(ctx)
                     except BaseException:
                         entered.remove(ctx)
-                        exc_info = sys.exc_info()
+                        exc_info_ = sys.exc_info()
                 else:
                     entered.remove(ctx)
                     try:
-                        if ctx.__exit__(*exc_info):
-                            exc_info = (None, None, None)
+                        if ctx.__exit__(*exc_info_):
+                            exc_info_ = (None, None, None)
                     except BaseException:
-                        exc_info = sys.exc_info()
+                        exc_info_ = sys.exc_info()
 
-            if isinstance(exc_info[1], BaseException):
-                raise exc_info[1].with_traceback(exc_info[2])
+            if isinstance(exc_info_[1], BaseException):
+                raise exc_info_[1].with_traceback(exc_info_[2])
 
             if entered:
                 sent = yield ys
 
     except BaseException:
         exc_info = sys.exc_info()
+    else:
+        exc_info = (None, None, None)
     finally:
         while entered:
             ctx = entered.pop()
