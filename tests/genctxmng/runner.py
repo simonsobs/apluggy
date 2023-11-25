@@ -52,8 +52,10 @@ def mock_context(
         try:
             sent = yield f'yield {id} ({i})'
             probe(id, i, sent)
-        except GeneratorExit as e:
-            probe(id, i, e)
+        except GeneratorExit:
+            # close() was called or garbage collected
+            # Don't probe here because this can happen after the test has finished.
+            # probe(id, i)
             raise  # otherwise RuntimeError: generator ignored GeneratorExit
         except (Raised, Thrown) as e:
             probe(id, i, e)
