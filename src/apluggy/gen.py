@@ -70,41 +70,45 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
     '''
 
     try:
+        # Append a context manager as it is entered and remove one as it is exited.
         entered = list[GenCtxMngr]()
+
         ys = []
         for ctx in ctxs:
             y = ctx.__enter__()
             entered.append(ctx)
             ys.append(y)
 
+        # Yield at least once even when an empty `ctxs` is given.
         sent = yield ys
 
         while entered:
             exc_info_: OptExcInfo = (None, None, None)
-
             ys = []
-            for ctx in list(reversed(entered)):
+            for ctx in list(reversed(entered)):  # From the innermost to outwards.
                 if exc_info_ == (None, None, None):
                     try:
                         y = ctx.gen.send(sent)
                         ys.append(y)
-                    except StopIteration:
+                    except StopIteration:  # `ctx` has exited.
                         entered.remove(ctx)
                     except BaseException:
                         entered.remove(ctx)
                         exc_info_ = sys.exc_info()
-                else:
+                else:  # An exception is outstanding.
                     entered.remove(ctx)
                     try:
                         if ctx.__exit__(*exc_info_):
+                            # The exception is handled.
                             exc_info_ = (None, None, None)
-                    except BaseException:
+                    except BaseException:  # A new or the same exception is raised.
                         exc_info_ = sys.exc_info()
 
             if isinstance(exc_info_[1], BaseException):
+                # An exception is still outstanding after the outermost context manager.
                 raise exc_info_[1].with_traceback(exc_info_[2])
 
-            if entered:
+            if entered:  # Avoid yielding after all context managers have exited.
                 sent = yield ys
 
     except BaseException:
@@ -112,13 +116,16 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
     else:
         exc_info = (None, None, None)
     finally:
+        # Exit the remaining context managers from the innermost to the outermost.
         while entered:
             ctx = entered.pop()
             try:
                 if ctx.__exit__(*exc_info):
+                    # The exception is handled.
                     exc_info = (None, None, None)
-            except BaseException:
+            except BaseException:  # A new or the same exception is raised.
                 exc_info = sys.exc_info()
 
         if isinstance(exc_info[1], BaseException):
+            # An exception is unhandled after all context managers have exited.
             raise exc_info[1].with_traceback(exc_info[2])
