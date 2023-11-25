@@ -1,7 +1,8 @@
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from .dev import stack_gen_ctxs
+from apluggy import stack_gen_ctxs
+
 from .refs import dunder_enter
 from .runner import run
 from .utils import RecordReturns, ReplayReturns

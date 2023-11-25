@@ -6,6 +6,7 @@ __all__ = [
     'HookimplMarker',
     'contextmanager',
     'asynccontextmanager',
+    'stack_gen_ctxs',
 ]
 
 
@@ -14,3 +15,4 @@ from pluggy import HookCallError, HookimplMarker, HookspecMarker, PluginValidati
 
 from ._decorator import asynccontextmanager
 from ._wrap import PluginManager
+from .gen import stack_gen_ctxs
