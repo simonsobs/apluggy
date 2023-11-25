@@ -1,9 +1,10 @@
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from apluggy.test import RecordReturns, ReplayReturns
+
 from .refs import dunder_enter, exit_stack, nested_with
 from .runner import run
-from .utils import RecordReturns, ReplayReturns
 
 
 @given(st.data())

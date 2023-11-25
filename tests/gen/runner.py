@@ -4,9 +4,10 @@ from typing import Any, Generator, TypeVar
 
 from hypothesis import strategies as st
 
+from apluggy.test import Probe
+
 from .exc import Raised, Thrown
 from .refs import Stack
-from .utils import Probe
 
 T = TypeVar('T')
 
