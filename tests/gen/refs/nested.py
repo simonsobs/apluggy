@@ -35,16 +35,16 @@ def nested_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
     assert len(ctxs) == 1
     ctx = ctxs[0]
     with ctx as y:
+        in_ctx = True
         ys = [y]
-        sent = yield ys
-        while True:
+        while in_ctx:
+            sent = yield ys
             ys = []
             try:
                 y = ctx.gen.send(sent)
                 ys.append(y)
             except StopIteration:
-                break
-            sent = yield ys
+                in_ctx = False
 
 
 @contextlib.contextmanager
