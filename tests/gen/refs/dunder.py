@@ -35,17 +35,27 @@ def dunder_enter_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any
     assert len(ctxs) == 1
     ctx = ctxs[0]
     y = ctx.__enter__()
+    in_ctx = True
     try:
         ys = [y]
-        sent = yield ys
-        while True:
-            ys = []
+        while in_ctx:
             try:
-                y = ctx.gen.send(sent)
-                ys.append(y)
-            except StopIteration:
-                break
-            sent = yield ys
+                sent = yield ys
+            except GeneratorExit:  # close() was called or garbage collected
+                ctx.gen.close()
+                raise  # re-raise if ctx hasn't raised any exception
+            except BaseException:
+                try:
+                    ctx.gen.throw(*sys.exc_info())
+                except StopIteration:
+                    in_ctx = False
+            else:
+                ys = []
+                try:
+                    y = ctx.gen.send(sent)
+                    ys.append(y)
+                except StopIteration:
+                    in_ctx = False
     except BaseException:
         if not ctx.__exit__(*sys.exc_info()):
             raise
