@@ -38,13 +38,23 @@ def nested_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
         in_ctx = True
         ys = [y]
         while in_ctx:
-            sent = yield ys
-            ys = []
             try:
-                y = ctx.gen.send(sent)
-                ys.append(y)
-            except StopIteration:
-                in_ctx = False
+                sent = yield ys
+            except GeneratorExit:  # close() was called or garbage collected
+                ctx.gen.close()
+                raise  # re-raise if ctx hasn't raised any exception
+            except BaseException:
+                try:
+                    ctx.gen.throw(*sys.exc_info())
+                except StopIteration:
+                    in_ctx = False
+            else:
+                ys = []
+                try:
+                    y = ctx.gen.send(sent)
+                    ys.append(y)
+                except StopIteration:
+                    in_ctx = False
 
 
 @contextlib.contextmanager
