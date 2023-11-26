@@ -34,6 +34,12 @@ def run(
     except RuntimeError as e:
         # generator didn't stop
         probe(e)
+    except KeyboardInterrupt as e:
+        probe(e)
+    else:
+        probe()
+    finally:
+        probe()
 
     return probe, yields
 
@@ -99,6 +105,9 @@ def run_generator_context(
         if draw(st.booleans()):
             probe()
             raise Raised('w-s')
+        if draw(st.booleans()):
+            probe()
+            raise KeyboardInterrupt()
         for i in range(n_sends, 0, -1):
             action = draw(st.sampled_from(['send', 'throw', 'close']))
             probe(i, action)
@@ -118,8 +127,12 @@ def run_generator_context(
                 # generator didn't stop
                 probe()
                 break
-
             if draw(st.booleans()):
                 probe()
                 raise Raised(f'w-{i}')
+            if draw(st.booleans()):
+                probe()
+                raise KeyboardInterrupt()
+            probe()
+        probe()
     probe()
