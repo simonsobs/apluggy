@@ -1,6 +1,6 @@
 import contextlib
-from collections.abc import Generator, Sequence
 import sys
+from collections.abc import Generator, Sequence
 from typing import Any, TypeVar
 
 from .types import GenCtxMngr
@@ -51,82 +51,107 @@ def nested_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
 def nested_with_double(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 2
     ctx0, ctx1 = ctxs
-    active = set(ctxs)
     with ctx0 as y0, ctx1 as y1:
+        in_ctx0 = True
+        in_ctx1 = True
         ys = [y0, y1]
-        while active:
+        while in_ctx0 or in_ctx1:
             sent = yield ys
-            exc_info = sys.exc_info()
-            assert exc_info == (None, None, None)
             ys = []
-
-            if ctx1 in active:
+            try:
+                if in_ctx1:
+                    try:
+                        y1 = ctx1.gen.send(sent)
+                        ys.append(y1)
+                    except StopIteration:
+                        in_ctx1 = False
+                    except BaseException:
+                        in_ctx1 = False
+                        raise
+            except BaseException:
+                if not in_ctx0:
+                    raise
+                in_ctx0 = False
                 try:
-                    y1 = ctx1.gen.send(sent)
-                    ys.append(y1)
-                except StopIteration:
-                    active.remove(ctx1)
-                except Exception:
-                    active.remove(ctx1)
-                    exc_info = sys.exc_info()
-
-            if ctx0 in active:
-                if exc_info == (None, None, None):
+                    if not ctx0.__exit__(*sys.exc_info()):
+                        raise
+                except BaseException:
+                    raise
+            else:
+                if in_ctx0:
                     try:
                         y0 = ctx0.gen.send(sent)
                         ys.append(y0)
                     except StopIteration:
-                        active.remove(ctx0)
-                    except Exception:
-                        active.remove(ctx0)
-                        exc_info = sys.exc_info()
-                else:
-                    active.remove(ctx0)
-                    try:
-                        if ctx0.__exit__(*exc_info):
-                            exc_info = (None, None, None)
-                    except Exception:
-                        exc_info = sys.exc_info()
-
-            if exc_info != (None, None, None):
-                assert isinstance(exc_info[1], BaseException)
-                raise exc_info[1].with_traceback(exc_info[2])
+                        in_ctx0 = False
+                    except BaseException:
+                        in_ctx0 = False
+                        raise
 
 
 @contextlib.contextmanager
-def nested_with_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+def nested_with_triple(  # noqa: C901
+    ctxs: Sequence[GenCtxMngr[T]],
+) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 3
     ctx0, ctx1, ctx2 = ctxs
-    active = list(reversed(ctxs))
     with ctx0 as y0, ctx1 as y1, ctx2 as y2:
+        in_ctx0 = True
+        in_ctx1 = True
+        in_ctx2 = True
         ys = [y0, y1, y2]
-        while active:
+        while any([in_ctx0, in_ctx1, in_ctx2]):
             sent = yield ys
-            exc_info = sys.exc_info()
-            assert exc_info == (None, None, None)
             ys = []
-
-            for ctx in list(active):
-                if exc_info == (None, None, None):
+            try:
+                try:
+                    if in_ctx2:
+                        try:
+                            y = ctx2.gen.send(sent)
+                            ys.append(y)
+                        except StopIteration:
+                            in_ctx2 = False
+                        except BaseException:
+                            in_ctx2 = False
+                            raise
+                except BaseException:
+                    if not in_ctx1:
+                        raise
+                    in_ctx1 = False
                     try:
-                        y = ctx.gen.send(sent)
+                        if not ctx1.__exit__(*sys.exc_info()):
+                            raise
+                    except BaseException:
+                        raise
+                else:
+                    if in_ctx1:
+                        try:
+                            y = ctx1.gen.send(sent)
+                            ys.append(y)
+                        except StopIteration:
+                            in_ctx1 = False
+                        except BaseException:
+                            in_ctx1 = False
+                            raise
+            except BaseException:
+                if not in_ctx0:
+                    raise
+                in_ctx0 = False
+                try:
+                    if not ctx0.__exit__(*sys.exc_info()):
+                        raise
+                except BaseException:
+                    raise
+            else:
+                if in_ctx0:
+                    try:
+                        y = ctx0.gen.send(sent)
                         ys.append(y)
                     except StopIteration:
-                        active.remove(ctx)
-                    except Exception:
-                        active.remove(ctx)
-                        exc_info = sys.exc_info()
-                else:
-                    active.remove(ctx)
-                    try:
-                        if ctx.__exit__(*exc_info):
-                            exc_info = (None, None, None)
-                    except Exception:
-                        exc_info = sys.exc_info()
-
-            if exc_info != (None, None, None):
-                assert isinstance(exc_info[1], BaseException)
-                raise exc_info[1].with_traceback(exc_info[2])
+                        in_ctx0 = False
+                    except BaseException:
+                        in_ctx0 = False
+                        raise
 
 
 @contextlib.contextmanager
