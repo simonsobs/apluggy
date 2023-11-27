@@ -149,9 +149,9 @@ def dunder_enter_double(  # noqa: C901
                                 active.remove(ctx0)
                                 exc_info = sys.exc_info()
 
-                if exc_info != (None, None, None):
-                    assert isinstance(exc_info[1], BaseException)
+                if isinstance(exc_info[1], BaseException):
                     raise exc_info[1].with_traceback(exc_info[2])
+
         except BaseException:
             if not ctx1.__exit__(*sys.exc_info()):
                 raise
