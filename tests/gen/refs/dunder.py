@@ -72,12 +72,12 @@ def dunder_enter_double(  # noqa: C901
 ) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 2
     ctx0, ctx1 = ctxs
-    active = set(ctxs)
     y0 = ctx0.__enter__()
     try:
         y1 = ctx1.__enter__()
         try:
             ys = [y0, y1]
+            active = set(ctxs)
             while active:
                 sent = None
                 try:
@@ -90,64 +90,49 @@ def dunder_enter_double(  # noqa: C901
                 ys = []
 
                 if ctx1 in active:
-                    match exc_info:
-                        case (_, val, _) if isinstance(val, GeneratorExit):
-                            active.remove(ctx1)
-                            try:
+                    try:
+                        match exc_info[1]:
+                            case val if isinstance(val, GeneratorExit):
                                 ctx1.gen.close()
-                            except BaseException:
-                                exc_info = sys.exc_info()
-                        case (_, val, _) if isinstance(val, BaseException):
-                            try:
-                                ctx1.gen.throw(*exc_info)
-                            except StopIteration as e:
-                                active.remove(ctx1)
-                                if e is not val:
-                                    exc_info = (None, None, None)
-                            except BaseException:
-                                active.remove(ctx1)
-                                exc_info = sys.exc_info()
-                            else:
+                            case val if isinstance(val, BaseException):
+                                try:
+                                    ctx1.gen.throw(*exc_info)
+                                except StopIteration:
+                                    active.remove(ctx1)
                                 exc_info = (None, None, None)
-                        case (None, None, None):
-                            try:
-                                y1 = ctx1.gen.send(sent)
-                                ys.append(y1)
-                            except StopIteration:
-                                active.remove(ctx1)
-                            except BaseException:
-                                active.remove(ctx1)
-                                exc_info = sys.exc_info()
+                            case None:
+                                try:
+                                    y1 = ctx1.gen.send(sent)
+                                    ys.append(y1)
+                                except StopIteration:
+                                    active.remove(ctx1)
+                            case _:
+                                raise NotImplementedError()
+                    except BaseException:
+                        active.remove(ctx1)
+                        exc_info = sys.exc_info()
 
                 if ctx0 in active:
-                    match exc_info:
-                        case (_, val, _) if isinstance(val, GeneratorExit):
-                            active.remove(ctx0)
-                            try:
+                    try:
+                        match exc_info[1]:
+                            case val if isinstance(val, GeneratorExit):
+                                active.remove(ctx0)
                                 ctx0.gen.close()
-                            except BaseException:
-                                exc_info = sys.exc_info()
-                        case (_, val, _) if isinstance(val, BaseException):
-                            try:
-                                ctx0.gen.throw(*exc_info)
-                            except StopIteration as e:
-                                active.remove(ctx0)
-                                if e is not val:
-                                    exc_info = (None, None, None)
-                            except BaseException:
-                                active.remove(ctx0)
-                                exc_info = sys.exc_info()
-                            else:
+                            case val if isinstance(val, BaseException):
+                                try:
+                                    ctx0.gen.throw(*exc_info)
+                                except StopIteration:
+                                    active.remove(ctx0)
                                 exc_info = (None, None, None)
-                        case (None, None, None):
-                            try:
-                                y0 = ctx0.gen.send(sent)
-                                ys.append(y0)
-                            except StopIteration:
-                                active.remove(ctx0)
-                            except BaseException:
-                                active.remove(ctx0)
-                                exc_info = sys.exc_info()
+                            case None:
+                                try:
+                                    y0 = ctx0.gen.send(sent)
+                                    ys.append(y0)
+                                except StopIteration:
+                                    active.remove(ctx0)
+                    except BaseException:
+                        active.remove(ctx0)
+                        exc_info = sys.exc_info()
 
                 if isinstance(exc_info[1], BaseException):
                     raise exc_info[1].with_traceback(exc_info[2])
@@ -199,9 +184,9 @@ def dunder_enter_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any
                             except BaseException:
                                 exc_info = sys.exc_info()
 
-                    if exc_info != (None, None, None):
-                        assert isinstance(exc_info[1], BaseException)
+                    if isinstance(exc_info[1], BaseException):
                         raise exc_info[1].with_traceback(exc_info[2])
+
             except BaseException:
                 if not ctx2.__exit__(*sys.exc_info()):
                     raise
