@@ -153,7 +153,6 @@ def dunder_enter_double(  # noqa: C901
 def dunder_enter_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 3
     ctx0, ctx1, ctx2 = ctxs
-    active = list(reversed(ctxs))
     y0 = ctx0.__enter__()
     try:
         y1 = ctx1.__enter__()
@@ -161,28 +160,40 @@ def dunder_enter_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any
             y2 = ctx2.__enter__()
             try:
                 ys = [y0, y1, y2]
+                active = list(reversed(ctxs))
                 while active:
-                    sent = yield ys
-                    exc_info = sys.exc_info()
-                    assert exc_info == (None, None, None)
+                    sent = None
+                    try:
+                        sent = yield ys
+                    except BaseException:
+                        exc_info = sys.exc_info()
+                    else:
+                        exc_info = (None, None, None)
+
                     ys = []
+
                     for ctx in list(active):
-                        if exc_info == (None, None, None):
-                            try:
-                                y = ctx.gen.send(sent)
-                                ys.append(y)
-                            except StopIteration:
-                                active.remove(ctx)
-                            except BaseException:
-                                active.remove(ctx)
-                                exc_info = sys.exc_info()
-                        else:
-                            active.remove(ctx)
-                            try:
-                                if ctx.__exit__(*exc_info):
+                        try:
+                            match exc_info[1]:
+                                case val if isinstance(val, GeneratorExit):
+                                    ctx.gen.close()
+                                case val if isinstance(val, BaseException):
+                                    try:
+                                        ctx.gen.throw(*exc_info)
+                                    except StopIteration:
+                                        active.remove(ctx)
                                     exc_info = (None, None, None)
-                            except BaseException:
-                                exc_info = sys.exc_info()
+                                case None:
+                                    try:
+                                        y = ctx.gen.send(sent)
+                                        ys.append(y)
+                                    except StopIteration:
+                                        active.remove(ctx)
+                                case _:
+                                    raise NotImplementedError()
+                        except BaseException:
+                            active.remove(ctx)
+                            exc_info = sys.exc_info()
 
                     if isinstance(exc_info[1], BaseException):
                         raise exc_info[1].with_traceback(exc_info[2])
