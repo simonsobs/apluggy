@@ -69,64 +69,53 @@ def nested_with_double(  # noqa: C901
         ys = [y0, y1]
         while in_ctx0 or in_ctx1:
             sent = None
+            ys_next = list[T]()
             try:
-                if not in_ctx1:
-                    try:
+                try:
+                    if not in_ctx1:
                         sent = yield ys
-                    finally:
-                        ys = []
-                else:
-                    try:
-                        try:
-                            sent = yield ys
-                        finally:
-                            ys = []
-                    except GeneratorExit:
-                        ctx1.gen.close()
-                        raise
-                    except BaseException:
-                        try:
-                            exc_info = sys.exc_info()
-                            ctx1.gen.throw(*exc_info)
-                        except StopIteration as e:
-                            in_ctx1 = False
-                            if e is exc_info[1]:
-                                raise
-                        except BaseException:
-                            in_ctx1 = False
-                            raise
                     else:
                         try:
-                            y = ctx1.gen.send(sent)
-                            ys.append(y)
-                        except StopIteration:
-                            in_ctx1 = False
+                            try:
+                                sent = yield ys
+                            except GeneratorExit:
+                                ctx1.gen.close()
+                                raise
+                            except BaseException:
+                                try:
+                                    exc_info = sys.exc_info()
+                                    ctx1.gen.throw(*exc_info)
+                                except StopIteration:
+                                    in_ctx1 = False
+                            else:
+                                try:
+                                    y = ctx1.gen.send(sent)
+                                    ys_next.append(y)
+                                except StopIteration:
+                                    in_ctx1 = False
                         except BaseException:
                             in_ctx1 = False
                             raise
-            except GeneratorExit:
-                ctx0.gen.close()
-                raise
+                except GeneratorExit:
+                    ctx0.gen.close()
+                    raise
+                except BaseException:
+                    try:
+                        exc_info = sys.exc_info()
+                        ctx0.gen.throw(*exc_info)
+                    except StopIteration:
+                        in_ctx0 = False
+                else:
+                    try:
+                        y = ctx0.gen.send(sent)
+                        ys_next.append(y)
+                    except StopIteration:
+                        in_ctx0 = False
             except BaseException:
-                try:
-                    exc_info = sys.exc_info()
-                    ctx0.gen.throw(*exc_info)
-                except StopIteration as e:
-                    in_ctx0 = False
-                    if e is exc_info[1]:
-                        raise
-                except BaseException:
-                    in_ctx0 = False
-                    raise
-            else:
-                try:
-                    y = ctx0.gen.send(sent)
-                    ys.append(y)
-                except StopIteration:
-                    in_ctx0 = False
-                except BaseException:
-                    in_ctx0 = False
-                    raise
+                in_ctx0 = False
+                raise
+
+            ys = ys_next
 
 
 @contextlib.contextmanager
