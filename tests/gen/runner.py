@@ -70,17 +70,20 @@ def mock_context(
                 probe(id, i)
                 raise
         probe(id, i)
-        if draw(st.booleans()):
-            probe(id, i)
-            raise Raised(f'c-{id}-{i}')
-        probe(id, i)
-        if draw(st.booleans()):
-            probe(id, i)
-            break
-        probe(id, i)
-        if draw(st.booleans()):
-            probe(id, i)
-            return
+        action = draw(st.sampled_from(['raise', 'break', 'return', 'none']))
+        probe(i, action)
+        match action:
+            case 'raise':
+                probe(id, i)
+                raise Raised(f'c-{id}-{i}')
+            case 'break':
+                probe(id, i)
+                break
+            case 'return':
+                probe(id, i)
+                return
+            case 'none':
+                probe(id, i)
         probe(id, i)
 
     probe(id)
@@ -115,12 +118,15 @@ def run_generator_context(
     with ctx as y:
         probe()
         yields.append(y)
-        if draw(st.booleans()):
-            probe()
-            raise Raised('w-s')
-        if draw(st.booleans()):
-            probe()
-            raise KeyboardInterrupt()
+        exc = draw(
+            st.one_of(
+                st.none(),
+                st.sampled_from([Raised('w-s'), KeyboardInterrupt()]),
+            )
+        )
+        probe(exc)
+        if exc is not None:
+            raise exc
         for i in range(n_sends, 0, -1):
             action = draw(st.sampled_from(['send', 'throw', 'close']))
             probe(i, action)
@@ -140,12 +146,15 @@ def run_generator_context(
                 # generator didn't stop
                 probe()
                 break
-            if draw(st.booleans()):
+            exc = draw(
+                st.one_of(
+                    st.none(),
+                    st.sampled_from([Raised(f'w-{i}'), KeyboardInterrupt()]),
+                )
+            )
+            probe(i, exc)
+            if exc is not None:
                 probe()
-                raise Raised(f'w-{i}')
-            if draw(st.booleans()):
-                probe()
-                raise KeyboardInterrupt()
-            probe()
+                raise exc
         probe()
     probe()
