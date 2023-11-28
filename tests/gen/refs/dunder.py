@@ -80,9 +80,11 @@ def dunder_enter_double(  # noqa: C901
             active = set(ctxs)
             while active:
                 sent = None
+                raised = False
                 try:
                     sent = yield ys
                 except BaseException:
+                    raised = True
                     exc_info = sys.exc_info()
                 else:
                     exc_info = (None, None, None)
@@ -94,6 +96,7 @@ def dunder_enter_double(  # noqa: C901
                         match exc_info[1]:
                             case val if isinstance(val, GeneratorExit):
                                 ctx1.gen.close()
+                                raise exc_info[1].with_traceback(exc_info[2])
                             case val if isinstance(val, BaseException):
                                 try:
                                     ctx1.gen.throw(*exc_info)
@@ -111,13 +114,15 @@ def dunder_enter_double(  # noqa: C901
                     except BaseException:
                         active.remove(ctx1)
                         exc_info = sys.exc_info()
+                    else:
+                        exc_info = (None, None, None)
 
                 if ctx0 in active:
                     try:
                         match exc_info[1]:
                             case val if isinstance(val, GeneratorExit):
-                                active.remove(ctx0)
                                 ctx0.gen.close()
+                                raise exc_info[1].with_traceback(exc_info[2])
                             case val if isinstance(val, BaseException):
                                 try:
                                     ctx0.gen.throw(*exc_info)
@@ -125,6 +130,8 @@ def dunder_enter_double(  # noqa: C901
                                     active.remove(ctx0)
                                 exc_info = (None, None, None)
                             case None:
+                                if raised:
+                                    break
                                 try:
                                     y0 = ctx0.gen.send(sent)
                                     ys.append(y0)
@@ -133,6 +140,8 @@ def dunder_enter_double(  # noqa: C901
                     except BaseException:
                         active.remove(ctx0)
                         exc_info = sys.exc_info()
+                    else:
+                        exc_info = (None, None, None)
 
                 if isinstance(exc_info[1], BaseException):
                     raise exc_info[1].with_traceback(exc_info[2])
