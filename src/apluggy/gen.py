@@ -1,10 +1,7 @@
 import contextlib
-from collections.abc import Generator, Sequence
 import sys
-from typing import TYPE_CHECKING, Any, TypeVar
-
-if TYPE_CHECKING:
-    from _typeshed import OptExcInfo
+from collections.abc import Generator, Sequence
+from typing import Any, TypeVar
 
 T = TypeVar('T')
 
@@ -81,27 +78,39 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
 
         while True:
             sent = None
+            raised = False  # True if an exception is raised at `yield`
+            broken = False  # Used to break `while` loop from inside `for` loop.
             try:
                 sent = yield ys
             except BaseException:
+                raised = True
                 exc_info = sys.exc_info()
             else:
                 exc_info = (None, None, None)
 
             ys = []
 
-            for ctx in list(reversed(entered)):
+            for ctx in list(reversed(entered)):  # From the innermost to outwards.
                 try:
                     match exc_info[1]:
                         case val if isinstance(val, GeneratorExit):
                             ctx.gen.close()
+                            raise exc_info[1].with_traceback(exc_info[2])
                         case val if isinstance(val, BaseException):
                             try:
                                 ctx.gen.throw(*exc_info)
-                            except StopIteration:
+                            except StopIteration:  # `ctx` has exited.
                                 entered.remove(ctx)
                             exc_info = (None, None, None)
                         case None:
+                            if raised:
+                                # The exception has been handled by an inner
+                                # context manager. However, still exit so as to
+                                # reproduce the behavior of an reference
+                                # implementation with `contextlib.ExitStack`
+                                # when `gen.send()` is not used.
+                                broken = True  # Break from the outer `while` loop.
+                                break
                             try:
                                 y = ctx.gen.send(sent)
                                 ys.append(y)
@@ -112,44 +121,18 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
                 except BaseException:
                     entered.remove(ctx)
                     exc_info = sys.exc_info()
+                else:
+                    exc_info = (None, None, None)
+
+            if broken:  # broke from the inner `for` loop
+                break
 
             if isinstance(exc_info[1], BaseException):
+                # An exception is still outstanding after the outermost context manager.
                 raise exc_info[1].with_traceback(exc_info[2])
 
             if not entered:
-                break                    
-
-        # # Yield at least once even when an empty `ctxs` is given.
-        # sent = yield ys
-
-        # while entered:
-        #     exc_info_: OptExcInfo = (None, None, None)
-        #     ys = []
-        #     for ctx in list(reversed(entered)):  # From the innermost to outwards.
-        #         if exc_info_ == (None, None, None):
-        #             try:
-        #                 y = ctx.gen.send(sent)
-        #                 ys.append(y)
-        #             except StopIteration:  # `ctx` has exited.
-        #                 entered.remove(ctx)
-        #             except BaseException:
-        #                 entered.remove(ctx)
-        #                 exc_info_ = sys.exc_info()
-        #         else:  # An exception is outstanding.
-        #             entered.remove(ctx)
-        #             try:
-        #                 if ctx.__exit__(*exc_info_):
-        #                     # The exception is handled.
-        #                     exc_info_ = (None, None, None)
-        #             except BaseException:  # A new or the same exception is raised.
-        #                 exc_info_ = sys.exc_info()
-
-        #     if isinstance(exc_info_[1], BaseException):
-        #         # An exception is still outstanding after the outermost context manager.
-        #         raise exc_info_[1].with_traceback(exc_info_[2])
-
-        #     if entered:  # Avoid yielding after all context managers have exited.
-        #         sent = yield ys
+                break
 
     except BaseException:
         exc_info = sys.exc_info()
