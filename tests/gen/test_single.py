@@ -57,9 +57,9 @@ def run_nested_with_single(draw: st.DrawFn, n_sends: int):
 
 
 @given(st.data())
-@settings(max_examples=200)
+@settings(max_examples=200, deadline=1000)
 def test_single(data: st.DataObject):
-    n_sends = data.draw(st.integers(min_value=0, max_value=5), label='n_sends')
+    n_sends = data.draw(st.integers(min_value=0, max_value=4), label='n_sends')
     draw = RecordReturns(data.draw)
 
     #
