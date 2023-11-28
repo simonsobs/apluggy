@@ -83,6 +83,7 @@ def mock_context(
             return
         probe(id, i)
 
+    probe(id)
     try:
         sent = yield f'yield {id}'
         probe(id, sent)
