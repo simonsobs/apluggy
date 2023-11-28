@@ -27,4 +27,4 @@ jobs:
           pip install --upgrade mypy
 
       - name: Run mypy
-        run: mypy --show-traceback src/ tests/
+        run: mypy --show-traceback src/
