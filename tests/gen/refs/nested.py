@@ -252,6 +252,7 @@ def nested_with_quadruple(  # noqa: C901
         ys = [y0, y1, y2, y3]
         while any([in_ctx0, in_ctx1, in_ctx2, in_ctx3]):
             sent = None
+            raised = False
             ys_next = list[T]()
             try:
                 try:
@@ -270,7 +271,11 @@ def nested_with_quadruple(  # noqa: C901
                                             else:
                                                 try:
                                                     try:
-                                                        sent = yield ys
+                                                        try:
+                                                            sent = yield ys
+                                                        except BaseException:
+                                                            raised = True
+                                                            raise
                                                     except GeneratorExit:
                                                         ctx3.gen.close()
                                                         raise
@@ -289,57 +294,81 @@ def nested_with_quadruple(  # noqa: C901
                                                 except BaseException:
                                                     in_ctx3 = False
                                                     raise
-                                        except GeneratorExit:
-                                            ctx2.gen.close()
-                                            raise
                                         except BaseException:
+                                            if not in_ctx2:
+                                                raise
                                             try:
-                                                exc_info = sys.exc_info()
-                                                ctx2.gen.throw(*exc_info)
-                                            except StopIteration:
-                                                in_ctx2 = False
+                                                raise
+                                            except GeneratorExit:
+                                                ctx2.gen.close()
+                                                raise
+                                            except BaseException:
+                                                try:
+                                                    exc_info = sys.exc_info()
+                                                    ctx2.gen.throw(*exc_info)
+                                                except StopIteration:
+                                                    in_ctx2 = False
                                         else:
-                                            try:
-                                                y = ctx2.gen.send(sent)
-                                                ys_next.append(y)
-                                            except StopIteration:
-                                                in_ctx2 = False
+                                            if in_ctx2:
+                                                if raised:
+                                                    break
+                                                try:
+                                                    y = ctx2.gen.send(sent)
+                                                    ys_next.append(y)
+                                                except StopIteration:
+                                                    in_ctx2 = False
                                     except BaseException:
                                         in_ctx2 = False
                                         raise
-                            except GeneratorExit:
-                                ctx1.gen.close()
-                                raise
                             except BaseException:
+                                if not in_ctx1:
+                                    raise
                                 try:
-                                    exc_info = sys.exc_info()
-                                    ctx1.gen.throw(*exc_info)
-                                except StopIteration:
-                                    in_ctx1 = False
+                                    raise
+                                except GeneratorExit:
+                                    ctx1.gen.close()
+                                    raise
+                                except BaseException:
+                                    try:
+                                        exc_info = sys.exc_info()
+                                        ctx1.gen.throw(*exc_info)
+                                    except StopIteration:
+                                        in_ctx1 = False
                             else:
-                                try:
-                                    y = ctx1.gen.send(sent)
-                                    ys_next.append(y)
-                                except StopIteration:
-                                    in_ctx1 = False
+                                if in_ctx1:
+                                    if raised:
+                                        break
+                                    try:
+                                        y = ctx1.gen.send(sent)
+                                        ys_next.append(y)
+                                    except StopIteration:
+                                        in_ctx1 = False
                         except BaseException:
                             in_ctx1 = False
                             raise
-                except GeneratorExit:
-                    ctx0.gen.close()
-                    raise
                 except BaseException:
+                    if not in_ctx0:
+                        raise
                     try:
-                        exc_info = sys.exc_info()
-                        ctx0.gen.throw(*exc_info)
-                    except StopIteration:
-                        in_ctx0 = False
+                        raise
+                    except GeneratorExit:
+                        ctx0.gen.close()
+                        raise
+                    except BaseException:
+                        try:
+                            exc_info = sys.exc_info()
+                            ctx0.gen.throw(*exc_info)
+                        except StopIteration:
+                            in_ctx0 = False
                 else:
-                    try:
-                        y = ctx0.gen.send(sent)
-                        ys_next.append(y)
-                    except StopIteration:
-                        in_ctx0 = False
+                    if in_ctx0:
+                        if raised:
+                            break
+                        try:
+                            y = ctx0.gen.send(sent)
+                            ys_next.append(y)
+                        except StopIteration:
+                            in_ctx0 = False
             except BaseException:
                 in_ctx0 = False
                 raise

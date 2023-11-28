@@ -1,12 +1,9 @@
 import contextlib
 import sys
 from collections.abc import Generator, Sequence
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from .types import GenCtxMngr
-
-if TYPE_CHECKING:
-    from _typeshed import OptExcInfo
 
 T = TypeVar('T')
 
@@ -254,9 +251,12 @@ def dunder_enter_quadruple(  # noqa: C901
                     active = list(reversed(ctxs))
                     while active:
                         sent = None
+                        raised = False
+                        broken = False
                         try:
                             sent = yield ys
                         except BaseException:
+                            raised = True
                             exc_info = sys.exc_info()
                         else:
                             exc_info = (None, None, None)
@@ -268,6 +268,7 @@ def dunder_enter_quadruple(  # noqa: C901
                                 match exc_info[1]:
                                     case val if isinstance(val, GeneratorExit):
                                         ctx.gen.close()
+                                        raise exc_info[1].with_traceback(exc_info[2])
                                     case val if isinstance(val, BaseException):
                                         try:
                                             ctx.gen.throw(*exc_info)
@@ -275,6 +276,9 @@ def dunder_enter_quadruple(  # noqa: C901
                                             active.remove(ctx)
                                         exc_info = (None, None, None)
                                     case None:
+                                        if raised:
+                                            broken = True
+                                            break
                                         try:
                                             y = ctx.gen.send(sent)
                                             ys.append(y)
@@ -285,6 +289,11 @@ def dunder_enter_quadruple(  # noqa: C901
                             except BaseException:
                                 active.remove(ctx)
                                 exc_info = sys.exc_info()
+                            else:
+                                exc_info = (None, None, None)
+
+                        if broken:
+                            break
 
                         if isinstance(exc_info[1], BaseException):
                             raise exc_info[1].with_traceback(exc_info[2])
