@@ -53,6 +53,7 @@ def mock_context(
     if draw(st.booleans()):
         probe(id)
         raise Raised(f'c-{id}-s')
+    probe(id)
 
     for i in range(n_sends, draw(st.integers(min_value=0, max_value=n_sends)), -1):
         probe(id, i)
@@ -62,9 +63,8 @@ def mock_context(
         except GeneratorExit:
             # close() was called or garbage collected
             # Don't probe here because this can happen after the test has finished.
-            # probe(id, i)
             raise  # otherwise RuntimeError: generator ignored GeneratorExit
-        except (Raised, Thrown) as e:
+        except BaseException as e:
             probe(id, i, e)
             if draw(st.booleans()):
                 probe(id, i)
@@ -74,11 +74,23 @@ def mock_context(
             probe(id, i)
             raise Raised(f'c-{id}-{i}')
         probe(id, i)
+        if draw(st.booleans()):
+            probe(id, i)
+            break
+        probe(id, i)
+        if draw(st.booleans()):
+            probe(id, i)
+            return
+        probe(id, i)
 
     try:
-        yield f'yield {id}'
-        probe(id)
-    except (Raised, Thrown) as e:
+        sent = yield f'yield {id}'
+        probe(id, sent)
+    except GeneratorExit:
+        # close() was called or garbage collected
+        # Don't probe here because this can happen after the test has finished.
+        raise
+    except BaseException as e:
         probe(id, e)
         if draw(st.booleans()):
             probe(id, e)
