@@ -1,6 +1,6 @@
 import contextlib
-import sys
 from collections.abc import Generator, Sequence
+import sys
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
@@ -79,37 +79,77 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
             entered.append(ctx)
             ys.append(y)
 
-        # Yield at least once even when an empty `ctxs` is given.
-        sent = yield ys
-
-        while entered:
-            exc_info_: OptExcInfo = (None, None, None)
-            ys = []
-            for ctx in list(reversed(entered)):  # From the innermost to outwards.
-                if exc_info_ == (None, None, None):
-                    try:
-                        y = ctx.gen.send(sent)
-                        ys.append(y)
-                    except StopIteration:  # `ctx` has exited.
-                        entered.remove(ctx)
-                    except BaseException:
-                        entered.remove(ctx)
-                        exc_info_ = sys.exc_info()
-                else:  # An exception is outstanding.
-                    entered.remove(ctx)
-                    try:
-                        if ctx.__exit__(*exc_info_):
-                            # The exception is handled.
-                            exc_info_ = (None, None, None)
-                    except BaseException:  # A new or the same exception is raised.
-                        exc_info_ = sys.exc_info()
-
-            if isinstance(exc_info_[1], BaseException):
-                # An exception is still outstanding after the outermost context manager.
-                raise exc_info_[1].with_traceback(exc_info_[2])
-
-            if entered:  # Avoid yielding after all context managers have exited.
+        while True:
+            sent = None
+            try:
                 sent = yield ys
+            except BaseException:
+                exc_info = sys.exc_info()
+            else:
+                exc_info = (None, None, None)
+
+            ys = []
+
+            for ctx in list(reversed(entered)):
+                try:
+                    match exc_info[1]:
+                        case val if isinstance(val, GeneratorExit):
+                            ctx.gen.close()
+                        case val if isinstance(val, BaseException):
+                            try:
+                                ctx.gen.throw(*exc_info)
+                            except StopIteration:
+                                entered.remove(ctx)
+                            exc_info = (None, None, None)
+                        case None:
+                            try:
+                                y = ctx.gen.send(sent)
+                                ys.append(y)
+                            except StopIteration:
+                                entered.remove(ctx)
+                        case _:
+                            raise NotImplementedError()
+                except BaseException:
+                    entered.remove(ctx)
+                    exc_info = sys.exc_info()
+
+            if isinstance(exc_info[1], BaseException):
+                raise exc_info[1].with_traceback(exc_info[2])
+
+            if not entered:
+                break                    
+
+        # # Yield at least once even when an empty `ctxs` is given.
+        # sent = yield ys
+
+        # while entered:
+        #     exc_info_: OptExcInfo = (None, None, None)
+        #     ys = []
+        #     for ctx in list(reversed(entered)):  # From the innermost to outwards.
+        #         if exc_info_ == (None, None, None):
+        #             try:
+        #                 y = ctx.gen.send(sent)
+        #                 ys.append(y)
+        #             except StopIteration:  # `ctx` has exited.
+        #                 entered.remove(ctx)
+        #             except BaseException:
+        #                 entered.remove(ctx)
+        #                 exc_info_ = sys.exc_info()
+        #         else:  # An exception is outstanding.
+        #             entered.remove(ctx)
+        #             try:
+        #                 if ctx.__exit__(*exc_info_):
+        #                     # The exception is handled.
+        #                     exc_info_ = (None, None, None)
+        #             except BaseException:  # A new or the same exception is raised.
+        #                 exc_info_ = sys.exc_info()
+
+        #     if isinstance(exc_info_[1], BaseException):
+        #         # An exception is still outstanding after the outermost context manager.
+        #         raise exc_info_[1].with_traceback(exc_info_[2])
+
+        #     if entered:  # Avoid yielding after all context managers have exited.
+        #         sent = yield ys
 
     except BaseException:
         exc_info = sys.exc_info()
