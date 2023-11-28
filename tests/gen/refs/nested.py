@@ -204,38 +204,109 @@ def nested_with_triple(  # noqa: C901
 
 
 @contextlib.contextmanager
-def nested_with_quadruple(
+def nested_with_quadruple(  # noqa: C901
     ctxs: Sequence[GenCtxMngr[T]],
 ) -> Generator[list[T], Any, Any]:
     assert len(ctxs) == 4
     ctx0, ctx1, ctx2, ctx3 = ctxs
-    active = list(reversed(ctxs))
     with ctx0 as y0, ctx1 as y1, ctx2 as y2, ctx3 as y3:
+        in_ctx0 = True
+        in_ctx1 = True
+        in_ctx2 = True
+        in_ctx3 = True
         ys = [y0, y1, y2, y3]
-        while active:
-            sent = yield ys
-            exc_info = sys.exc_info()
-            assert exc_info == (None, None, None)
-            ys = []
-
-            for ctx in list(active):
-                if exc_info == (None, None, None):
+        while any([in_ctx0, in_ctx1, in_ctx2, in_ctx3]):
+            sent = None
+            ys_next = list[T]()
+            try:
+                try:
+                    if not any([in_ctx1, in_ctx2, in_ctx3]):
+                        sent = yield ys
+                    else:
+                        try:
+                            try:
+                                if not any([in_ctx2, in_ctx3]):
+                                    sent = yield ys
+                                else:
+                                    try:
+                                        try:
+                                            if not in_ctx3:
+                                                sent = yield ys
+                                            else:
+                                                try:
+                                                    try:
+                                                        sent = yield ys
+                                                    except GeneratorExit:
+                                                        ctx3.gen.close()
+                                                        raise
+                                                    except BaseException:
+                                                        try:
+                                                            exc_info = sys.exc_info()
+                                                            ctx3.gen.throw(*exc_info)
+                                                        except StopIteration:
+                                                            in_ctx3 = False
+                                                    else:
+                                                        try:
+                                                            y = ctx3.gen.send(sent)
+                                                            ys_next.append(y)
+                                                        except StopIteration:
+                                                            in_ctx3 = False
+                                                except BaseException:
+                                                    in_ctx3 = False
+                                                    raise
+                                        except GeneratorExit:
+                                            ctx2.gen.close()
+                                            raise
+                                        except BaseException:
+                                            try:
+                                                exc_info = sys.exc_info()
+                                                ctx2.gen.throw(*exc_info)
+                                            except StopIteration:
+                                                in_ctx2 = False
+                                        else:
+                                            try:
+                                                y = ctx2.gen.send(sent)
+                                                ys_next.append(y)
+                                            except StopIteration:
+                                                in_ctx2 = False
+                                    except BaseException:
+                                        in_ctx2 = False
+                                        raise
+                            except GeneratorExit:
+                                ctx1.gen.close()
+                                raise
+                            except BaseException:
+                                try:
+                                    exc_info = sys.exc_info()
+                                    ctx1.gen.throw(*exc_info)
+                                except StopIteration:
+                                    in_ctx1 = False
+                            else:
+                                try:
+                                    y = ctx1.gen.send(sent)
+                                    ys_next.append(y)
+                                except StopIteration:
+                                    in_ctx1 = False
+                        except BaseException:
+                            in_ctx1 = False
+                            raise
+                except GeneratorExit:
+                    ctx0.gen.close()
+                    raise
+                except BaseException:
                     try:
-                        y = ctx.gen.send(sent)
-                        ys.append(y)
+                        exc_info = sys.exc_info()
+                        ctx0.gen.throw(*exc_info)
                     except StopIteration:
-                        active.remove(ctx)
-                    except Exception:
-                        active.remove(ctx)
-                        exc_info = sys.exc_info()
+                        in_ctx0 = False
                 else:
-                    active.remove(ctx)
                     try:
-                        if ctx.__exit__(*exc_info):
-                            exc_info = (None, None, None)
-                    except Exception:
-                        exc_info = sys.exc_info()
+                        y = ctx0.gen.send(sent)
+                        ys_next.append(y)
+                    except StopIteration:
+                        in_ctx0 = False
+            except BaseException:
+                in_ctx0 = False
+                raise
 
-            if exc_info != (None, None, None):
-                assert isinstance(exc_info[1], BaseException)
-                raise exc_info[1].with_traceback(exc_info[2])
+            ys = ys_next
