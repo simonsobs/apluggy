@@ -69,6 +69,8 @@ def mock_context(
             if draw(st.booleans()):
                 probe(id, i)
                 raise
+            probe(id, i)
+            return
         probe(id, i)
         action = draw(st.sampled_from(['raise', 'break', 'return', 'none']))
         probe(i, action)
