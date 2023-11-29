@@ -36,23 +36,13 @@ def nested_with_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any,
         in_ctx = True
         ys = [y]
         while in_ctx:
+            sent = yield ys
+            ys = []
             try:
-                sent = yield ys
-            except GeneratorExit:  # close() was called or garbage collected
-                ctx.gen.close()
-                raise  # re-raise if ctx hasn't raised any exception
-            except BaseException:
-                try:
-                    ctx.gen.throw(*sys.exc_info())
-                except StopIteration:
-                    in_ctx = False
-            else:
-                ys = []
-                try:
-                    y = ctx.gen.send(sent)
-                    ys.append(y)
-                except StopIteration:
-                    in_ctx = False
+                y = ctx.gen.send(sent)
+                ys.append(y)
+            except StopIteration:
+                in_ctx = False
 
 
 @contextlib.contextmanager
@@ -66,37 +56,16 @@ def nested_with_double(  # noqa: C901
         in_ctx1 = True
         ys = [y0, y1]
         while in_ctx0 or in_ctx1:
-            sent = None
-            raised = False
-            ys_next = list[T]()
+            sent = yield ys
+            ys = list[T]()
             try:
                 try:
-                    if not in_ctx1:
-                        sent = yield ys
-                    else:
+                    if in_ctx1:
                         try:
-                            try:
-                                try:
-                                    sent = yield ys
-                                except BaseException:
-                                    raised = True
-                                    raise
-                            except GeneratorExit:
-                                ctx1.gen.close()
-                                raise
-                            except BaseException:
-                                try:
-                                    exc_info = sys.exc_info()
-                                    ctx1.gen.throw(*exc_info)
-                                except StopIteration:
-                                    in_ctx1 = False
-                            else:
-                                assert not raised
-                                try:
-                                    y = ctx1.gen.send(sent)
-                                    ys_next.append(y)
-                                except StopIteration:
-                                    in_ctx1 = False
+                            y = ctx1.gen.send(sent)
+                            ys.append(y)
+                        except StopIteration:
+                            in_ctx1 = False
                         except BaseException:
                             in_ctx1 = False
                             raise
@@ -104,30 +73,19 @@ def nested_with_double(  # noqa: C901
                     if not in_ctx0:
                         raise
                     try:
-                        raise
-                    except GeneratorExit:
-                        ctx0.gen.close()
-                        raise
-                    except BaseException:
-                        try:
-                            exc_info = sys.exc_info()
-                            ctx0.gen.throw(*exc_info)
-                        except StopIteration:
-                            in_ctx0 = False
+                        ctx0.gen.throw(*sys.exc_info())
+                    except StopIteration:
+                        in_ctx0 = False
                 else:
                     if in_ctx0:
-                        if raised:  # The exception was handled by ctx1.
-                            break  # To match the exit stack implementation.
                         try:
                             y = ctx0.gen.send(sent)
-                            ys_next.append(y)
+                            ys.append(y)
                         except StopIteration:
                             in_ctx0 = False
             except BaseException:
                 in_ctx0 = False
                 raise
-
-            ys = ys_next
 
 
 @contextlib.contextmanager
@@ -142,41 +100,19 @@ def nested_with_triple(  # noqa: C901
         in_ctx2 = True
         ys = [y0, y1, y2]
         while any([in_ctx0, in_ctx1, in_ctx2]):
-            sent = None
-            raised = False
-            ys_next = list[T]()
+            sent = yield ys
+            ys = list[T]()
             try:
                 try:
-                    if not any([in_ctx1, in_ctx2]):
-                        sent = yield ys
-                    else:
+                    if any([in_ctx1, in_ctx2]):
                         try:
                             try:
-                                if not in_ctx2:
-                                    sent = yield ys
-                                else:
+                                if in_ctx2:
                                     try:
-                                        try:
-                                            try:
-                                                sent = yield ys
-                                            except BaseException:
-                                                raised = True
-                                                raise
-                                        except GeneratorExit:
-                                            ctx2.gen.close()
-                                            raise
-                                        except BaseException:
-                                            try:
-                                                exc_info = sys.exc_info()
-                                                ctx2.gen.throw(*exc_info)
-                                            except StopIteration:
-                                                in_ctx2 = False
-                                        else:
-                                            try:
-                                                y = ctx2.gen.send(sent)
-                                                ys_next.append(y)
-                                            except StopIteration:
-                                                in_ctx2 = False
+                                        y = ctx2.gen.send(sent)
+                                        ys.append(y)
+                                    except StopIteration:
+                                        in_ctx2 = False
                                     except BaseException:
                                         in_ctx2 = False
                                         raise
@@ -184,23 +120,15 @@ def nested_with_triple(  # noqa: C901
                                 if not in_ctx1:
                                     raise
                                 try:
-                                    raise
-                                except GeneratorExit:
-                                    ctx1.gen.close()
-                                    raise
-                                except BaseException:
-                                    try:
-                                        exc_info = sys.exc_info()
-                                        ctx1.gen.throw(*exc_info)
-                                    except StopIteration:
-                                        in_ctx1 = False
+                                    exc_info = sys.exc_info()
+                                    ctx1.gen.throw(*exc_info)
+                                except StopIteration:
+                                    in_ctx1 = False
                             else:
                                 if in_ctx1:
-                                    if raised:
-                                        break
                                     try:
                                         y = ctx1.gen.send(sent)
-                                        ys_next.append(y)
+                                        ys.append(y)
                                     except StopIteration:
                                         in_ctx1 = False
                         except BaseException:
@@ -210,27 +138,17 @@ def nested_with_triple(  # noqa: C901
                     if not in_ctx0:
                         raise
                     try:
-                        raise
-                    except GeneratorExit:
-                        ctx0.gen.close()
-                        raise
-                    except BaseException:
-                        try:
-                            exc_info = sys.exc_info()
-                            ctx0.gen.throw(*exc_info)
-                        except StopIteration:
-                            in_ctx0 = False
+                        exc_info = sys.exc_info()
+                        ctx0.gen.throw(*exc_info)
+                    except StopIteration:
+                        in_ctx0 = False
                 else:
                     if in_ctx0:
-                        if raised:
-                            break
                         try:
                             y = ctx0.gen.send(sent)
-                            ys_next.append(y)
+                            ys.append(y)
                         except StopIteration:
                             in_ctx0 = False
             except BaseException:
                 in_ctx0 = False
                 raise
-
-            ys = ys_next

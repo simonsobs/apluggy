@@ -1,7 +1,10 @@
 import contextlib
 import sys
 from collections.abc import Generator, Sequence
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from _typeshed import OptExcInfo
 
 T = TypeVar('T')
 
@@ -77,55 +80,29 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
             ys.append(y)
 
         while True:
-            sent = None
-            raised = False  # True if an exception is raised at `yield`
-            broken = False  # Used to break `while` loop from inside `for` loop.
-            try:
-                sent = yield ys
-            except BaseException:
-                raised = True
-                exc_info = sys.exc_info()
-            else:
-                exc_info = (None, None, None)
-
-            ys = []
+            sent = yield ys
+            ys = list[T]()
+            exc_info: OptExcInfo = (None, None, None)
 
             for ctx in list(reversed(entered)):  # From the innermost to outwards.
                 try:
-                    match exc_info[1]:
-                        case val if isinstance(val, GeneratorExit):
-                            ctx.gen.close()
-                            raise exc_info[1].with_traceback(exc_info[2])
-                        case val if isinstance(val, BaseException):
-                            try:
-                                ctx.gen.throw(*exc_info)
-                            except StopIteration:  # `ctx` has exited.
-                                entered.remove(ctx)
-                            exc_info = (None, None, None)
-                        case None:
-                            if raised:
-                                # The exception has been handled by an inner
-                                # context manager. However, still exit so as to
-                                # reproduce the behavior of an reference
-                                # implementation with `contextlib.ExitStack`
-                                # when `gen.send()` is not used.
-                                broken = True  # Break from the outer `while` loop.
-                                break
-                            try:
-                                y = ctx.gen.send(sent)
-                                ys.append(y)
-                            except StopIteration:
-                                entered.remove(ctx)
-                        case _:
-                            raise NotImplementedError()
+                    if isinstance(exc_info[1], BaseException):
+                        try:
+                            ctx.gen.throw(*exc_info)
+                        except StopIteration:
+                            entered.remove(ctx)
+                        exc_info = (None, None, None)
+                    else:
+                        try:
+                            y = ctx.gen.send(sent)
+                            ys.append(y)
+                        except StopIteration:
+                            entered.remove(ctx)
                 except BaseException:
                     entered.remove(ctx)
                     exc_info = sys.exc_info()
                 else:
                     exc_info = (None, None, None)
-
-            if broken:  # broke from the inner `for` loop
-                break
 
             if isinstance(exc_info[1], BaseException):
                 # An exception is still outstanding after the outermost context manager.
