@@ -14,5 +14,5 @@ from decorator import contextmanager
 from pluggy import HookCallError, HookimplMarker, HookspecMarker, PluginValidationError
 
 from ._decorator import asynccontextmanager
-from .gen import stack_gen_ctxs
+from .stack import stack_gen_ctxs
 from .wrap import PluginManager

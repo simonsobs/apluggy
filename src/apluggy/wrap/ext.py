@@ -6,7 +6,7 @@ from typing import Any, AsyncContextManager, Coroutine
 from pluggy import HookCaller
 from pluggy import PluginManager as PluginManager_
 
-from ..gen import stack_gen_ctxs
+from apluggy.stack import stack_gen_ctxs
 
 GenCtxManager = contextlib._GeneratorContextManager
 
