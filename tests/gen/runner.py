@@ -19,7 +19,7 @@ def run(
 ) -> tuple[Probe, list[list[T]]]:
     probe = Probe()
     contexts = [
-        mock_context(draw=draw, probe=probe, id=i, n_sends=n_sends)
+        mock_context(draw=draw, probe=probe, id=f'ctx{i}', n_sends=n_sends)
         for i in range(n_contexts)
     ]
     ctx = stack(contexts)
@@ -46,67 +46,58 @@ def run(
 
 @contextlib.contextmanager
 def mock_context(
-    draw: st.DrawFn, probe: Probe, id: int, n_sends: int
+    draw: st.DrawFn, probe: Probe, id: str, n_sends: int
 ) -> Generator[Any, Any, Any]:
-    probe(id)
+    probe(id, 'init', f'n_sends={n_sends}')
 
     if draw(st.booleans()):
-        probe(id)
-        raise Raised(f'c-{id}-s')
+        exc = Raised(f'{id}-init')
+        probe(id, 'raise', f'{exc!r}')
+        raise exc
     probe(id)
 
-    for i in range(n_sends, draw(st.integers(min_value=0, max_value=n_sends)), -1):
-        probe(id, i)
-        try:
-            sent = yield f'yield {id} ({i})'
-            probe(id, i, sent)
-        except GeneratorExit:
-            # close() was called or garbage collected
-            # Don't probe here because this can happen after the test has finished.
-            raise  # otherwise RuntimeError: generator ignored GeneratorExit
-        except BaseException as e:
-            probe(id, i, e)
-            if draw(st.booleans()):
-                probe(id, i)
-                raise
-            probe(id, i)
-            return
-        probe(id, i)
-        action = draw(st.sampled_from(['raise', 'break', 'return', 'none']))
-        probe(i, action)
-        match action:
-            case 'raise':
-                probe(id, i)
-                raise Raised(f'c-{id}-{i}')
-            case 'break':
-                probe(id, i)
-                break
-            case 'return':
-                probe(id, i)
-                return
-            case 'none':
-                probe(id, i)
-        probe(id, i)
-
-    probe(id)
     try:
-        sent = yield f'yield {id}'
-        probe(id, sent)
-    except GeneratorExit:
-        # close() was called or garbage collected
-        # Don't probe here because this can happen after the test has finished.
-        raise
-    except BaseException as e:
-        probe(id, e)
-        if draw(st.booleans()):
-            probe(id, e)
-            raise
+        y = f'{id}-enter'
+        probe(id, 'enter', f'{y!r}')
+        sent = yield y
+        probe(id, 'received', f'{sent!r}')
 
-    probe(id)
-    if draw(st.booleans()):
-        probe(id)
-        raise Raised(f'c-{id}-e')
-    probe(id)
+        for i in range(n_sends):
+            ii = f'{i+1}/{n_sends}'
+
+            action = draw(st.one_of(st.none(), st.sampled_from(['raise', 'break'])))
+            if action == 'raise':
+                exc = Raised(f'{id}-{ii}')
+                probe(id, ii, 'raise', f'{exc!r}')
+                raise exc
+            elif action == 'break':
+                probe(id, ii, 'break')
+                break
+
+            y = f'{id}-yield-{ii}'
+            probe(id, ii, 'yield', f'{y!r}')
+            sent = yield y
+            probe(id, ii, 'received', f'{sent!r}')
+
+    except GeneratorExit:  # close() was called or garbage collected
+        # This can happen after the test has finished.
+        raise
+    except BaseException as e:  # throw() was called or exception raised
+        # throws() might be called by __exit__(). If so, an exception must be
+        # raised here, otherwise __exit__() will raise
+        # RuntimeError("generator didn't stop after throw()")
+        probe(id, 'caught', e)
+        # action = draw(st.one_of(st.none(), st.sampled_from(['reraise', 'raise'])))
+        action = draw(st.sampled_from(['reraise', 'raise']))
+        if action == 'reraise':
+            probe(id, 'reraise')
+            raise
+        elif action == 'raise':
+            exc = Raised(f'{id}-except')
+            probe(id, 'raise', f'{exc!r}')
+            raise exc
+    finally:
+        probe(id, 'finally')
 
 
 def run_generator_context(
@@ -116,47 +107,52 @@ def run_generator_context(
     yields: MutableSequence[T],
     n_sends: int,
 ) -> None:
-    probe()
+    probe('entering')
     with ctx as y:
-        probe()
+        probe('entered')
         yields.append(y)
         exc = draw(
             st.one_of(
                 st.none(),
-                st.sampled_from([Raised('w-s'), KeyboardInterrupt()]),
+                st.sampled_from([Raised('with-entered'), KeyboardInterrupt()]),
             )
         )
-        probe(exc)
         if exc is not None:
+            probe('with', 'raise', f'{exc!r}')
             raise exc
-        for i in range(n_sends, 0, -1):
+        for i in range(n_sends):
+            ii = f'{i+1}/{n_sends}'
             action = draw(st.sampled_from(['send', 'throw', 'close']))
-            probe(i, action)
             try:
                 match action:
                     case 'send':
-                        y = ctx.gen.send(f'send({i})')
+                        sent = f'send-{ii}'
+                        probe('with', ii, 'send', f'{sent!r}')
+                        y = ctx.gen.send(sent)
                         yields.append(y)
                     case 'throw':
-                        ctx.gen.throw(Thrown(f'{i}'))
+                        exc = Thrown(f'{ii}')
+                        probe('with', ii, 'throw', f'{exc!r}')
+                        ctx.gen.throw(exc)
                     case 'close':
+                        probe('with', ii, 'close')
                         ctx.gen.close()
-            except StopIteration:
-                probe()
+            except GeneratorExit:
+                raise
+            except StopIteration as e:
+                probe('with', ii, 'caught', e)
                 break
-            except RuntimeError:
-                # generator didn't stop
-                probe()
-                break
+            except BaseException as e:
+                probe('with', ii, 'caught', e)
+                raise
             exc = draw(
                 st.one_of(
                     st.none(),
-                    st.sampled_from([Raised(f'w-{i}'), KeyboardInterrupt()]),
+                    st.sampled_from([Raised(f'with-{ii}'), KeyboardInterrupt()]),
                 )
             )
-            probe(i, exc)
             if exc is not None:
-                probe()
+                probe('with', {ii}, 'raise', f'{exc!r}')
                 raise exc
-        probe()
-    probe()
+        probe('exiting')
+    probe('exited')

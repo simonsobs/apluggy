@@ -40,7 +40,7 @@ def run(
 
 def run_direct(draw: st.DrawFn, n_sends: int):
     probe = Probe()
-    ctx = mock_context(draw=draw, probe=probe, id=0, n_sends=n_sends)
+    ctx = mock_context(draw=draw, probe=probe, id='ctx', n_sends=n_sends)
     yields = list[Any]()
     run(ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends)
     yields = [[y] for y in yields]
@@ -49,7 +49,7 @@ def run_direct(draw: st.DrawFn, n_sends: int):
 
 def run_nested_with_single(draw: st.DrawFn, n_sends: int):
     probe = Probe()
-    ctx0 = mock_context(draw=draw, probe=probe, id=0, n_sends=n_sends)
+    ctx0 = mock_context(draw=draw, probe=probe, id='ctx', n_sends=n_sends)
     ctx = nested_with_single([ctx0])
     yields = list[Any]()
     run(ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends)
