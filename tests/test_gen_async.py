@@ -1,7 +1,7 @@
 import pytest
 
 import apluggy as pluggy
-from apluggy import _wrap, asynccontextmanager
+from apluggy import wrap, asynccontextmanager
 
 hookspec = pluggy.HookspecMarker('project')
 hookimpl = pluggy.HookimplMarker('project')
@@ -27,7 +27,7 @@ class Plugin_1:
         assert n is None
 
 
-@pytest.mark.skip(reason=f'The implementation is commented out in {_wrap.__name__}')
+@pytest.mark.skip(reason=f'The implementation is commented out in {wrap.__name__}')
 async def test_asend():
 
     pm = pluggy.PluginManager('project')
