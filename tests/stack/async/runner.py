@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 from collections.abc import AsyncGenerator, MutableSequence
 from typing import Any, TypeVar
@@ -13,6 +14,11 @@ T = TypeVar('T')
 AsyncGenCtxManager = contextlib._AsyncGeneratorContextManager
 
 
+async def async_skips(n: int) -> None:
+    for _ in range(n):
+        await asyncio.sleep(0)
+
+
 @contextlib.asynccontextmanager
 async def mock_async_context(
     draw: st.DrawFn, probe: Probe, id: str, n_sends: int
@@ -25,6 +31,10 @@ async def mock_async_context(
         raise exc
     probe(id)
 
+    n_skips = draw(st.integers(min_value=0, max_value=4))
+    probe(id, 'n_skips', n_skips)
+    await async_skips(n_skips)
+
     try:
         y = f'{id}-enter'
         probe(id, 'enter', f'{y!r}')
@@ -33,6 +43,10 @@ async def mock_async_context(
 
         for i in range(n_sends):
             ii = f'{i+1}/{n_sends}'
+
+            n_skips = draw(st.integers(min_value=0, max_value=4))
+            probe(id, ii, 'n_skips', n_skips)
+            await async_skips(n_skips)
 
             action = draw(st.one_of(st.none(), st.sampled_from(['raise', 'break'])))
             if action == 'raise':
