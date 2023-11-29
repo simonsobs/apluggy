@@ -1,6 +1,6 @@
 import contextlib
-from collections.abc import MutableSequence
-from typing import Any, Generator, TypeVar
+from collections.abc import Generator, MutableSequence
+from typing import Any, TypeVar
 
 from hypothesis import strategies as st
 
