@@ -14,7 +14,7 @@ def test_imp(data: st.DataObject):
     '''Compare with reference implementations.'''
     n_contexts = data.draw(st.integers(min_value=0, max_value=4), label='n_contexts')
 
-    n_sends = data.draw(st.integers(min_value=0, max_value=3), label='n_sends')
+    n_sends = data.draw(st.integers(min_value=0, max_value=4), label='n_sends')
     draw = RecordReturns(data.draw)
 
     # ic(n_contexts, n_sends)
