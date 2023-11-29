@@ -56,10 +56,32 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
     As the output indicates, the context managers are called in the reverse
     order after the first `yield` statement as if they were nested with the
     `with` block. In the above example, `ctx1` is the inner context manager and
-    `ctx0` is the outer context manager.
+    `ctx0` is the outer context manager.  The above example is equivalent to
+    the following:
+
+    >>> with (c0 := ctx0()) as y0, (c1 := ctx1()) as y1:
+    ...     ys = [y0, y1]
+    ...     print('main: received', ys)
+    ...     sent = 'send 0'
+    ...     ys = [c1.gen.send(sent), c0.gen.send(sent)]
+    ...     print('main: received', ys)
+    ctx0: enter
+    ctx1: enter
+    main: received ['ctx0: yield 0', 'ctx1: yield 0']
+    ctx1: received send 0
+    ctx0: received send 0
+    main: received ['ctx1: yield 1', 'ctx0: yield 1']
+    ctx1: exit
+    ctx0: exit
 
     In addition to the `send()` method, you can also use the `throw()` and `close()`
     methods of the `gen` attribute.
+
+    The context managers can yield any number of times. The first time any of
+    the context managers exits, the stack exists after calling the `__exit__()`
+    method of the remaining context managers in the reverse order.
+
+    If the argument `ctxs` is empty, the stack yields an empty list and exits.
 
     An exception will be propagated from an inner context manager to an outer
     context manager. The propagation stops if a context manager handles the
