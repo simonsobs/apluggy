@@ -39,6 +39,11 @@ def run(
     else:
         probe()
     finally:
+        # Ensure to close all contexts, otherwise the test will fail because
+        # they might be closed at the garbage collection and probe() will be
+        # unpredictable.
+        for c in reversed(contexts):
+            c.gen.close()
         probe()
 
     return probe, yields
@@ -79,8 +84,10 @@ def mock_context(
             sent = yield y
             probe(id, ii, 'received', f'{sent!r}')
 
-    except GeneratorExit:  # close() was called or garbage collected
-        # This can happen after the test has finished.
+    except GeneratorExit as e:  # close() was called or garbage collected
+        # This can happen after the test has finished unless close() is called
+        # in the test.
+        probe(id, 'caught', e)
         raise
     except BaseException as e:  # throw() was called or exception raised
         # throws() might be called by __exit__(). If so, an exception must be
