@@ -4,9 +4,7 @@ from typing import Any, Optional
 from pluggy import PluginManager as PluginManager_
 from pluggy._hooks import _Plugin
 
-from .ahook import AHook
-from .awith import AWith
-from .with_ import With
+from .ext import AHook, AWith, With
 
 
 class PluginManager(PluginManager_):
