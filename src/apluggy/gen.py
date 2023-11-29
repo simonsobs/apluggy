@@ -1,10 +1,7 @@
 import contextlib
 import sys
 from collections.abc import Generator, Sequence
-from typing import TYPE_CHECKING, Any, TypeVar
-
-if TYPE_CHECKING:
-    from _typeshed import OptExcInfo
+from typing import Any, TypeVar
 
 T = TypeVar('T')
 
@@ -79,37 +76,14 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
             entered.append(ctx)
             ys.append(y)
 
-        while True:
-            sent = yield ys
-            ys = list[T]()
-            exc_info: OptExcInfo = (None, None, None)
+        sent = yield ys
 
-            for ctx in list(reversed(entered)):  # From the innermost to outwards.
-                try:
-                    if isinstance(exc_info[1], BaseException):
-                        try:
-                            ctx.gen.throw(*exc_info)
-                        except StopIteration:
-                            entered.remove(ctx)
-                        exc_info = (None, None, None)
-                    else:
-                        try:
-                            y = ctx.gen.send(sent)
-                            ys.append(y)
-                        except StopIteration:
-                            entered.remove(ctx)
-                except BaseException:
-                    entered.remove(ctx)
-                    exc_info = sys.exc_info()
-                else:
-                    exc_info = (None, None, None)
-
-            if isinstance(exc_info[1], BaseException):
-                # An exception is still outstanding after the outermost context manager.
-                raise exc_info[1].with_traceback(exc_info[2])
-
-            if not entered:
-                break
+        if ctxs:
+            try:
+                while True:
+                    sent = yield [ctx.gen.send(sent) for ctx in reversed(ctxs)]
+            except StopIteration:
+                pass
 
     except BaseException:
         exc_info = sys.exc_info()
