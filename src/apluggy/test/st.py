@@ -1,10 +1,22 @@
 import inspect
 from collections import deque
 from collections.abc import Callable
-from typing import Generic, ParamSpec, TypeVar
+from typing import Generic, Optional, ParamSpec, TypeVar
+
+from hypothesis import strategies as st
 
 P = ParamSpec('P')
 T = TypeVar('T')
+
+
+def st_none_or(st_: st.SearchStrategy[T]) -> st.SearchStrategy[Optional[T]]:
+    '''A strategy for `None` or values from another strategy.
+
+    >>> v = st_none_or(st.integers()).example()
+    >>> v is None or isinstance(v, int)
+    True
+    '''
+    return st.one_of(st.none(), st_)
 
 
 class RecordReturns(Generic[P, T]):

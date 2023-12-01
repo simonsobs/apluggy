@@ -61,6 +61,7 @@ addopts = """
 """
 # doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE",]
 doctest_optionflags = ["ELLIPSIS"]
+filterwarnings = ["ignore::hypothesis.errors.NonInteractiveExampleWarning"]
 
 [tool.black]
 skip-string-normalization = true
