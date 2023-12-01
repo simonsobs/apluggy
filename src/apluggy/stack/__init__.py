@@ -1,4 +1,4 @@
-__all__ = ['stack_gen_ctxs', 'GenCtxMngr']
+__all__ = ['stack_gen_ctxs', 'AGenCtxMngr', 'GenCtxMngr']
 
 from .sync import stack_gen_ctxs
-from .types import GenCtxMngr
+from .types import AGenCtxMngr, GenCtxMngr
