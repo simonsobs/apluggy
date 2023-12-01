@@ -21,7 +21,7 @@ dependencies = [
   "pluggy>=1.0",
   "decorator>=5.1",
   "types-decorator>=5.1",
-  "exceptiongroup>=1.1",
+  "hypothesis>=6.68",
 ]
 dynamic = ["version"]
 
@@ -31,7 +31,6 @@ tests = [
   "pytest-cov>=3.0",
   "pytest-timeout>=2.1",
   "pytest>=7.0",
-  "hypothesis>=6.68",
 ]
 
 [project.urls]
