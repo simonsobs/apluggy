@@ -5,7 +5,7 @@ from hypothesis import strategies as st
 
 from apluggy.test import Probe, RecordReturns
 
-from .exc import Raised, Thrown
+from .exc import WithRaised, Thrown, GenRaised
 from .runner import mock_async_context, run_async_generator_context
 
 
@@ -22,7 +22,7 @@ async def run_mock_async_context(
             ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends
         )
         probe()
-    except (Raised, Thrown) as e:
+    except (WithRaised, Thrown, GenRaised) as e:
         probe(e)
     except RuntimeError as e:
         # generator didn't stop
