@@ -4,7 +4,7 @@ from typing import Any, TypeVar
 
 from hypothesis import strategies as st
 
-from apluggy.test import Probe
+from apluggy.test import Probe, st_none_or
 
 from .exc import Raised, Thrown
 from .refs import Stack
@@ -118,12 +118,8 @@ def run_generator_context(
     with ctx as y:
         probe('entered')
         yields.append(y)
-        exc = draw(
-            st.one_of(
-                st.none(),
-                st.sampled_from([Raised('with-entered'), KeyboardInterrupt()]),
-            )
-        )
+        st_exceptions = st.sampled_from([Raised('entering'), KeyboardInterrupt()])
+        exc = draw(st_none_or(st_exceptions))
         if exc is not None:
             probe('with', 'raise', f'{exc!r}')
             raise exc
@@ -152,12 +148,8 @@ def run_generator_context(
             except BaseException as e:
                 probe('with', ii, 'caught', e)
                 raise
-            exc = draw(
-                st.one_of(
-                    st.none(),
-                    st.sampled_from([Raised(f'with-{ii}'), KeyboardInterrupt()]),
-                )
-            )
+            st_exceptions = st.sampled_from([Raised(f'with-{ii}'), KeyboardInterrupt()])
+            exc = draw(st_none_or(st_exceptions))
             if exc is not None:
                 probe('with', {ii}, 'raise', f'{exc!r}')
                 raise exc
