@@ -1,14 +1,12 @@
 import asyncio
 import contextlib
 from collections.abc import AsyncIterator, Callable
-from typing import Any, AsyncContextManager, Coroutine
+from typing import Any, Coroutine
 
 from pluggy import HookCaller
 from pluggy import PluginManager as PluginManager_
 
-from apluggy.stack import stack_gen_ctxs
-
-GenCtxManager = contextlib._GeneratorContextManager
+from apluggy.stack import AGenCtxMngr, GenCtxMngr, stack_gen_ctxs
 
 
 class AHook:
@@ -29,10 +27,10 @@ class With:
         self.pm = pm
         self.reverse = reverse
 
-    def __getattr__(self, name: str) -> Callable[..., GenCtxManager[list]]:
+    def __getattr__(self, name: str) -> Callable[..., GenCtxMngr[list]]:
         hook: HookCaller = getattr(self.pm.hook, name)
 
-        def call(*args: Any, **kwargs: Any) -> GenCtxManager[list]:
+        def call(*args: Any, **kwargs: Any) -> GenCtxMngr[list]:
             ctxs = hook(*args, **kwargs)
             if self.reverse:
                 ctxs = list(reversed(ctxs))
@@ -46,14 +44,14 @@ class AWith:
         self.pm = pm
         self.reverse = reverse
 
-    def __getattr__(self, name: str) -> Callable[..., AsyncContextManager]:
+    def __getattr__(self, name: str) -> Callable[..., AGenCtxMngr]:
         hook: HookCaller = getattr(self.pm.hook, name)
         return _Call(hook, reverse=self.reverse)
 
 
 def _Call(
-    hook: Callable[..., list[AsyncContextManager]], reverse: bool = False
-) -> Callable[..., AsyncContextManager]:
+    hook: Callable[..., list[AGenCtxMngr]], reverse: bool = False
+) -> Callable[..., AGenCtxMngr]:
     @contextlib.asynccontextmanager
     async def call(*args: Any, **kwargs: Any) -> AsyncIterator[list]:
         ctxs = hook(*args, **kwargs)
