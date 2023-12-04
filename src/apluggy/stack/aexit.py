@@ -160,7 +160,7 @@ class AGenWrapForAexit(AsyncGenerator[T, U]):
 
             # TODO: Consider catching Exception instead of StopAsyncIteration, in which
             # case we re-raised the original exception if `anext()` raises any exception.
-            
+
             # NOTE: It is possible that the generator wasn't in fact exhausted
             # after `athrow()` was called and then exhausted after `anext()`,
             # in which case, the behavior is not perfectly consistent with
