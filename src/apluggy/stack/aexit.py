@@ -1,10 +1,13 @@
 import contextlib
+from typing import TypeVar
 
 from .types import AGenCtxMngr
 
+T = TypeVar('T')
+
 
 @contextlib.contextmanager
-def patch_aexit(ctx: AGenCtxMngr):
+def patch_aexit(ctx: AGenCtxMngr[T]):
     _org_aexit = ctx.__aexit__
 
     async def aexit(*exc_info):
@@ -19,7 +22,7 @@ def patch_aexit(ctx: AGenCtxMngr):
 
 
 @contextlib.contextmanager
-def _patch_gen(ctx: AGenCtxMngr):
+def _patch_gen(ctx: AGenCtxMngr[T]):
     _org_gen = ctx.gen
 
     class Gen:
