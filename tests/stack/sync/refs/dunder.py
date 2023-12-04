@@ -3,7 +3,7 @@ import sys
 from collections.abc import Generator, Sequence
 from typing import Any, TypeVar
 
-from .types import GenCtxMngr
+from apluggy.stack import GenCtxMngr
 
 T = TypeVar('T')
 

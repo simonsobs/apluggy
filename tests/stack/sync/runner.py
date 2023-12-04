@@ -4,14 +4,13 @@ from typing import Any, TypeVar
 
 from hypothesis import strategies as st
 
+from apluggy.stack import GenCtxMngr
 from apluggy.test import Probe, st_none_or
 
 from .exc import Raised, Thrown
 from .refs import Stack
 
 T = TypeVar('T')
-
-GenCtxManager = contextlib._GeneratorContextManager
 
 
 def run(
@@ -108,7 +107,7 @@ def mock_context(
 
 
 def run_generator_context(
-    ctx: GenCtxManager[T],
+    ctx: GenCtxMngr[T],
     draw: st.DrawFn,
     probe: Probe,
     yields: MutableSequence[T],

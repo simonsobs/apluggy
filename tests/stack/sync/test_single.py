@@ -8,13 +8,13 @@ from apluggy.test import Probe, RecordReturns, ReplayReturns
 
 from .exc import Raised, Thrown
 from .refs.nested import nested_with_single
-from .runner import GenCtxManager, mock_context, run_generator_context
+from .runner import GenCtxMngr, mock_context, run_generator_context
 
 T = TypeVar('T')
 
 
 def run(
-    ctx: GenCtxManager[T],
+    ctx: GenCtxMngr[T],
     draw: st.DrawFn,
     probe: Probe,
     yields: MutableSequence[T],

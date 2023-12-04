@@ -1,10 +1,10 @@
-import contextlib
+# import contextlib
 from collections.abc import Sequence
 from typing import Generic, Protocol, TypeVar
 
-T = TypeVar('T')
+from apluggy.stack import GenCtxMngr
 
-GenCtxMngr = contextlib._GeneratorContextManager
+T = TypeVar('T', covariant=True)
 
 
 class Stack(Protocol, Generic[T]):
