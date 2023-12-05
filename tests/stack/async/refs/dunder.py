@@ -4,17 +4,21 @@ import sys
 from collections.abc import AsyncGenerator, Sequence
 from typing import Any, TypeVar
 
+from apluggy.stack import patch_aexit
+
 from .types import AGenCtxMngr
 
 T = TypeVar('T')
 
 
-def dunder_enter(ctxs: Sequence[AGenCtxMngr[T]]) -> AGenCtxMngr[list[T]]:
+def dunder_enter(
+    ctxs: Sequence[AGenCtxMngr[T]], fix_reraise: bool = True
+) -> AGenCtxMngr[list[T]]:
     match len(ctxs):
         case 0:
             return dunder_enter_null(ctxs)
         case 1:
-            return dunder_enter_single(ctxs)
+            return dunder_enter_single(ctxs, fix_reraise=fix_reraise)
         case 2:
             return dunder_enter_double(ctxs)
         case _:
@@ -32,22 +36,24 @@ async def dunder_enter_null(
 @contextlib.asynccontextmanager
 async def dunder_enter_single(
     ctxs: Sequence[AGenCtxMngr[T]],
+    fix_reraise: bool,
 ) -> AsyncGenerator[list[T], Any]:
     assert len(ctxs) == 1
     ctx = ctxs[0]
     y = await ctx.__aenter__()
-    try:
-        sent = yield [y]
+    with patch_aexit(ctx) if fix_reraise else contextlib.nullcontext():
         try:
-            while True:
-                sent = yield [await ctx.gen.asend(sent)]
-        except StopAsyncIteration:
-            pass
-    except BaseException:
-        if not await ctx.__aexit__(*sys.exc_info()):
-            raise
-    else:
-        await ctx.__aexit__(None, None, None)
+            sent = yield [y]
+            try:
+                while True:
+                    sent = yield [await ctx.gen.asend(sent)]
+            except StopAsyncIteration:
+                pass
+        except BaseException:
+            if not await ctx.__aexit__(*sys.exc_info()):
+                raise
+        else:
+            await ctx.__aexit__(None, None, None)
 
 
 @contextlib.asynccontextmanager
