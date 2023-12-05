@@ -36,18 +36,14 @@ async def async_skips(n: int) -> None:
 
 
 async def run(
-    draw: st.DrawFn,
-    stack: AStack[T],
-    n_contexts: int,
-    n_sends: int,
-    fix_reraise: bool,
+    draw: st.DrawFn, stack: AStack[T], n_contexts: int, n_sends: int
 ) -> tuple[Probe, list[list[T]]]:
     probe = Probe()
     contexts = [
         mock_async_context(draw=draw, probe=probe, id=f'ctx{i}', n_sends=n_sends)
         for i in range(n_contexts)
     ]
-    ctx = stack(contexts, fix_reraise=fix_reraise)
+    ctx = stack(contexts)
     yields = list[Any]()
     try:
         await run_async_generator_context(

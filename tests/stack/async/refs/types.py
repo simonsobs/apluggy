@@ -7,9 +7,5 @@ T = TypeVar('T', covariant=True)
 
 
 class AStack(Protocol, Generic[T]):
-    def __call__(
-        self,
-        ctxs: Iterable[AGenCtxMngr[T]],
-        fix_reraise: bool = True,
-    ) -> AGenCtxMngr[list[T]]:
+    def __call__(self, ctxs: Iterable[AGenCtxMngr[T]]) -> AGenCtxMngr[list[T]]:
         ...
