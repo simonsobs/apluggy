@@ -4,11 +4,12 @@ from typing import Any, TypeVar
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from apluggy.stack import GenCtxMngr
 from apluggy.test import Probe, RecordReturns, ReplayReturns
 
 from .exc import Raised, Thrown
 from .refs.nested import nested_with_single
-from .runner import GenCtxMngr, mock_context, run_generator_context
+from .runner import mock_context, run_generator_context
 
 T = TypeVar('T')
 
