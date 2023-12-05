@@ -5,14 +5,13 @@ from typing import Any, TypeVar
 
 from hypothesis import strategies as st
 
+from apluggy.stack import AGenCtxMngr
 from apluggy.test import Probe, st_none_or
 
 from .exc import GenRaised, Thrown, WithRaised
 from .refs import AStack
 
 T = TypeVar('T')
-
-AsyncGenCtxManager = contextlib._AsyncGeneratorContextManager
 
 
 async def close_gen(gen: AsyncGenerator[Any, Any], max_attempts: int = 10) -> None:
@@ -134,7 +133,7 @@ async def mock_async_context(
 
 
 async def run_async_generator_context(
-    ctx: AsyncGenCtxManager[T],
+    ctx: AGenCtxMngr[T],
     draw: st.DrawFn,
     probe: Probe,
     yields: MutableSequence[T],
