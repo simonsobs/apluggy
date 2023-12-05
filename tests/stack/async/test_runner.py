@@ -5,7 +5,7 @@ from hypothesis import strategies as st
 
 from apluggy.test import Probe, RecordReturns
 
-from .exc import WithRaised, Thrown, GenRaised
+from .exc import GenRaised, Thrown, WithRaised
 from .runner import mock_async_context, run_async_generator_context
 
 
