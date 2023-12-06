@@ -43,7 +43,7 @@ async def run(
         mock_async_context(draw=draw, probe=probe, id=f'ctx{i}', n_sends=n_sends)
         for i in range(n_contexts)
     ]
-    ctx = stack(contexts)
+    ctx = stack(iter(contexts))
     yields = list[Any]()
     try:
         await run_async_generator_context(
