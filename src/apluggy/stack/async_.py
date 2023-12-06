@@ -17,6 +17,10 @@ async def async_stack_gen_ctxs(
     fix_reraise: bool = True,
     sequential: bool = False,
 ) -> AsyncGenerator[list[T], Any]:
+    '''Manage multiple async context managers with the support of the `gen` attribute.
+
+    The async version of `stack_gen_ctxs()`.
+    '''
     ctxs = list(ctxs)
 
     entered = set[AGenCtxMngr[T]]()
@@ -28,17 +32,25 @@ async def async_stack_gen_ctxs(
 
     with contextlib.ExitStack() as stack:
         if fix_reraise:
+            # Apply a correction so an exception propagates when `gen` is used
             for ctx in ctxs:
                 stack.enter_context(patch_aexit(ctx))
 
         try:
+            # Enter the async context managers
             if sequential:
                 ys = [await _enter(ctx) for ctx in ctxs]
             else:
                 ys = await asyncio.gather(*[_enter(ctx) for ctx in ctxs])
+
+            # Yield at least once even if an empty `ctxs` is given.
+            # Receive a value from the `with` block sent by `gen.asend()`.
             sent = yield ys
+
             if ctxs:
                 try:
+                    # Send the received value to the async context managers
+                    # until at least one of them exits.
                     while True:
                         if sequential:
                             ys = [await ctx.gen.asend(sent) for ctx in reversed(ctxs)]
@@ -48,6 +60,7 @@ async def async_stack_gen_ctxs(
                             )
                         sent = yield ys
                 except StopAsyncIteration:
+                    # An async context manager exited.
                     pass
 
         except BaseException:
@@ -55,6 +68,7 @@ async def async_stack_gen_ctxs(
         else:
             exc_info = (None, None, None)
         finally:
+            # Exit the async context managers sequentially in the reverse order.
             for ctx in reversed(ctxs):
                 if ctx not in entered:
                     continue
@@ -63,5 +77,7 @@ async def async_stack_gen_ctxs(
                         exc_info = (None, None, None)
                 except BaseException:
                     exc_info = sys.exc_info()
+
             if isinstance(exc_info[1], BaseException):
+                # An exception is unhandled after all async context managers have exited.
                 raise exc_info[1].with_traceback(exc_info[2])
