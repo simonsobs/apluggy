@@ -61,6 +61,11 @@ async def async_stack_gen_ctxs(
                         sent = yield ys
                 except StopAsyncIteration:
                     # An async context manager exited.
+
+                    # TODO: When `sequential` is `False`, some `asend()` tasks can be
+                    # still running.  It is probably necessary to wait for them before
+                    # exiting the async context manager.
+
                     pass
 
         except BaseException:
