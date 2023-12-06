@@ -1,14 +1,15 @@
 import contextlib
 import sys
-from collections.abc import Generator, Sequence
+from collections.abc import Generator, Iterable
 from typing import Any, TypeVar
 
-from .types import GenCtxMngr
+from apluggy.stack import GenCtxMngr
 
 T = TypeVar('T')
 
 
-def dunder_enter(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
+def dunder_enter(ctxs: Iterable[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
+    ctxs = list(ctxs)
     match len(ctxs):
         case 0:
             return dunder_enter_null(ctxs)
@@ -25,13 +26,14 @@ def dunder_enter(ctxs: Sequence[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
 
 
 @contextlib.contextmanager
-def dunder_enter_null(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+def dunder_enter_null(ctxs: Iterable[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     assert not ctxs
     yield []
 
 
 @contextlib.contextmanager
-def dunder_enter_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+def dunder_enter_single(ctxs: Iterable[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+    ctxs = list(ctxs)
     assert len(ctxs) == 1
     ctx = ctxs[0]
     y = ctx.__enter__()
@@ -51,8 +53,9 @@ def dunder_enter_single(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any
 
 @contextlib.contextmanager
 def dunder_enter_double(  # noqa: C901
-    ctxs: Sequence[GenCtxMngr[T]],
+    ctxs: Iterable[GenCtxMngr[T]],
 ) -> Generator[list[T], Any, Any]:
+    ctxs = list(ctxs)
     assert len(ctxs) == 2
     ctx0, ctx1 = ctxs
     y0 = ctx0.__enter__()
@@ -78,7 +81,8 @@ def dunder_enter_double(  # noqa: C901
 
 
 @contextlib.contextmanager
-def dunder_enter_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+def dunder_enter_triple(ctxs: Iterable[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+    ctxs = list(ctxs)
     assert len(ctxs) == 3
     ctx0, ctx1, ctx2 = ctxs
     y0 = ctx0.__enter__()
@@ -117,8 +121,9 @@ def dunder_enter_triple(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any
 
 @contextlib.contextmanager
 def dunder_enter_quadruple(
-    ctxs: Sequence[GenCtxMngr[T]],
+    ctxs: Iterable[GenCtxMngr[T]],
 ) -> Generator[list[T], Any, Any]:
+    ctxs = list(ctxs)
     assert len(ctxs) == 4
     ctx0, ctx1, ctx2, ctx3 = ctxs
     y0 = ctx0.__enter__()

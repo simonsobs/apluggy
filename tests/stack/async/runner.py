@@ -1,65 +1,85 @@
+import asyncio
 import contextlib
-from collections.abc import MutableSequence
-from typing import Any, Generator, TypeVar
+from collections.abc import AsyncGenerator, MutableSequence
+from typing import Any, TypeVar
 
 from hypothesis import strategies as st
 
-from apluggy.test import Probe
+from apluggy.stack import AGenCtxMngr
+from apluggy.test import Probe, st_none_or
 
-from .exc import Raised, Thrown
-from .refs import Stack
+from .exc import GenRaised, Thrown, WithRaised
+from .refs import AStack
 
 T = TypeVar('T')
 
-GenCtxManager = contextlib._GeneratorContextManager
+
+async def close_gen(gen: AsyncGenerator[Any, Any], max_attempts: int = 10) -> None:
+    while True:
+        try:
+            await gen.aclose()
+        except RuntimeError:
+            # 'aclose(): asynchronous generator is already running'
+
+            max_attempts -= 1
+            if max_attempts <= 0:
+                raise
+
+            await asyncio.sleep(0)
+            continue
+        break
 
 
-def run(
-    draw: st.DrawFn, stack: Stack[T], n_contexts, n_sends: int
+async def async_skips(n: int) -> None:
+    for _ in range(n):
+        await asyncio.sleep(0)
+
+
+async def run(
+    draw: st.DrawFn, stack: AStack[T], n_contexts: int, n_sends: int
 ) -> tuple[Probe, list[list[T]]]:
     probe = Probe()
     contexts = [
-        mock_context(draw=draw, probe=probe, id=f'ctx{i}', n_sends=n_sends)
+        mock_async_context(draw=draw, probe=probe, id=f'ctx{i}', n_sends=n_sends)
         for i in range(n_contexts)
     ]
-    ctx = stack(contexts)
+    ctx = stack(iter(contexts))
     yields = list[Any]()
     try:
-        run_generator_context(
+        await run_async_generator_context(
             ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends
         )
         probe()
-    except (Raised, Thrown) as e:
+    except (WithRaised, Thrown, GenRaised) as e:
         probe(e)
     except RuntimeError as e:
         # generator didn't stop
         probe(e)
     except KeyboardInterrupt as e:
         probe(e)
-    else:
-        probe()
     finally:
-        # Ensure to close all contexts, otherwise the test will fail because
-        # they might be closed at the garbage collection and probe() will be
-        # unpredictable.
         for c in reversed(contexts):
-            c.gen.close()
+            await close_gen(c.gen)
         probe()
 
     return probe, yields
 
 
-@contextlib.contextmanager
-def mock_context(
+@contextlib.asynccontextmanager
+async def mock_async_context(
     draw: st.DrawFn, probe: Probe, id: str, n_sends: int
-) -> Generator[Any, Any, Any]:
+) -> AsyncGenerator[Any, Any]:
     probe(id, 'init', f'n_sends={n_sends}')
 
     if draw(st.booleans()):
-        exc = Raised(f'{id}-init')
+        exc = GenRaised(f'{id}-init')
         probe(id, 'raise', f'{exc!r}')
         raise exc
     probe(id)
+
+    n_skips = draw(st.integers(min_value=0, max_value=4))
+    probe(id, 'n_skips', n_skips)
+    await async_skips(n_skips)
 
     try:
         y = f'{id}-enter'
@@ -70,9 +90,13 @@ def mock_context(
         for i in range(n_sends):
             ii = f'{i+1}/{n_sends}'
 
+            n_skips = draw(st.integers(min_value=0, max_value=4))
+            probe(id, ii, 'n_skips', n_skips)
+            await async_skips(n_skips)
+
             action = draw(st.one_of(st.none(), st.sampled_from(['raise', 'break'])))
             if action == 'raise':
-                exc = Raised(f'{id}-{ii}')
+                exc = GenRaised(f'{id}-{ii}')
                 probe(id, ii, 'raise', f'{exc!r}')
                 raise exc
             elif action == 'break':
@@ -84,49 +108,47 @@ def mock_context(
             sent = yield y
             probe(id, ii, 'received', f'{sent!r}')
 
-    except GeneratorExit as e:  # close() was called or garbage collected
-        # This can happen after the test has finished unless close() is called
-        # in the test.
+        if draw(st.booleans()):
+            exc = GenRaised(f'{id}-exit')
+            probe(id, 'raise', f'{exc!r}')
+            raise exc
+
+        probe(id)
+
+    except GeneratorExit as e:
         probe(id, 'caught', e)
         raise
-    except BaseException as e:  # throw() was called or exception raised
-        # throws() might be called by __exit__(). If so, an exception must be
-        # raised here, otherwise __exit__() will raise
-        # RuntimeError("generator didn't stop after throw()")
+    except BaseException as e:
         probe(id, 'caught', e)
-        # action = draw(st.one_of(st.none(), st.sampled_from(['reraise', 'raise'])))
         action = draw(st.sampled_from(['reraise', 'raise']))
         if action == 'reraise':
             probe(id, 'reraise')
             raise
         elif action == 'raise':
-            exc = Raised(f'{id}-except')
+            exc = GenRaised(f'{id}-except')
             probe(id, 'raise', f'{exc!r}')
             raise exc
     finally:
         probe(id, 'finally')
 
 
-def run_generator_context(
-    ctx: GenCtxManager[T],
+async def run_async_generator_context(
+    ctx: AGenCtxMngr[T],
     draw: st.DrawFn,
     probe: Probe,
     yields: MutableSequence[T],
     n_sends: int,
 ) -> None:
     probe('entering')
-    with ctx as y:
+    async with ctx as y:
         probe('entered')
         yields.append(y)
-        exc = draw(
-            st.one_of(
-                st.none(),
-                st.sampled_from([Raised('with-entered'), KeyboardInterrupt()]),
-            )
-        )
+        st_exceptions = st.sampled_from([WithRaised('entered'), KeyboardInterrupt()])
+        exc = draw(st_none_or(st_exceptions))
         if exc is not None:
             probe('with', 'raise', f'{exc!r}')
             raise exc
+
         for i in range(n_sends):
             ii = f'{i+1}/{n_sends}'
             action = draw(st.sampled_from(['send', 'throw', 'close']))
@@ -135,29 +157,25 @@ def run_generator_context(
                     case 'send':
                         sent = f'send-{ii}'
                         probe('with', ii, 'send', f'{sent!r}')
-                        y = ctx.gen.send(sent)
+                        y = await ctx.gen.asend(sent)
                         yields.append(y)
                     case 'throw':
                         exc = Thrown(f'{ii}')
                         probe('with', ii, 'throw', f'{exc!r}')
-                        ctx.gen.throw(exc)
+                        await ctx.gen.athrow(exc)
                     case 'close':
                         probe('with', ii, 'close')
-                        ctx.gen.close()
+                        await ctx.gen.aclose()
             except GeneratorExit:
                 raise
-            except StopIteration as e:
+            except StopAsyncIteration as e:
                 probe('with', ii, 'caught', e)
                 break
             except BaseException as e:
                 probe('with', ii, 'caught', e)
                 raise
-            exc = draw(
-                st.one_of(
-                    st.none(),
-                    st.sampled_from([Raised(f'with-{ii}'), KeyboardInterrupt()]),
-                )
-            )
+            st_exceptions = st.sampled_from([WithRaised(f'{ii}'), KeyboardInterrupt()])
+            exc = draw(st_none_or(st_exceptions))
             if exc is not None:
                 probe('with', {ii}, 'raise', f'{exc!r}')
                 raise exc

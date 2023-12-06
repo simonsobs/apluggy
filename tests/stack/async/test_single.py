@@ -4,28 +4,29 @@ from typing import Any, TypeVar
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from apluggy.stack import AGenCtxMngr
 from apluggy.test import Probe, RecordReturns, ReplayReturns
 
-from .exc import Raised, Thrown
-from .refs.nested import nested_with_single
-from .runner import GenCtxManager, mock_context, run_generator_context
+from .exc import GenRaised, Thrown, WithRaised
+from .refs.dunder import dunder_enter_single
+from .runner import mock_async_context, run_async_generator_context
 
 T = TypeVar('T')
 
 
-def run(
-    ctx: GenCtxManager[T],
+async def run(
+    ctx: AGenCtxMngr[T],
     draw: st.DrawFn,
     probe: Probe,
     yields: MutableSequence[T],
     n_sends: int,
 ) -> None:
     try:
-        run_generator_context(
+        await run_async_generator_context(
             ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends
         )
         probe()
-    except (Raised, Thrown) as e:
+    except (GenRaised, Thrown, WithRaised) as e:
         probe(e)
     except RuntimeError as e:
         # generator didn't stop
@@ -38,36 +39,42 @@ def run(
         probe()
 
 
-def run_direct(draw: st.DrawFn, n_sends: int):
+async def run_direct(draw: st.DrawFn, n_sends: int):
     probe = Probe()
-    ctx = mock_context(draw=draw, probe=probe, id='ctx', n_sends=n_sends)
+    ctx = mock_async_context(draw=draw, probe=probe, id='ctx', n_sends=n_sends)
     yields = list[Any]()
-    run(ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends)
+    await run(ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends)
     yields = [[y] for y in yields]
     return probe, yields
 
 
-def run_nested_with_single(draw: st.DrawFn, n_sends: int):
+async def run_dunder_enter_single(draw: st.DrawFn, n_sends: int):
     probe = Probe()
-    ctx0 = mock_context(draw=draw, probe=probe, id='ctx', n_sends=n_sends)
-    ctx = nested_with_single([ctx0])
+    ctx0 = mock_async_context(draw=draw, probe=probe, id='ctx', n_sends=n_sends)
+    ctx = dunder_enter_single([ctx0], fix_reraise=True)  # type: ignore
     yields = list[Any]()
-    run(ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends)
+    await run(ctx=ctx, draw=draw, probe=probe, yields=yields, n_sends=n_sends)
     return probe, yields
 
 
 @given(st.data())
 @settings(max_examples=200, deadline=1000)
-def test_single(data: st.DataObject):
+async def test_single(data: st.DataObject):
     n_sends = data.draw(st.integers(min_value=0, max_value=5), label='n_sends')
     draw = RecordReturns(data.draw)
 
     #
-    probe0, yields0 = run_direct(draw=draw, n_sends=n_sends)
+    probe0, yields0 = await run_direct(draw=draw, n_sends=n_sends)
+
+    # ic(probe0.calls)
+    # ic(yields0)
 
     #
     replay = ReplayReturns(draw)
-    probe1, yields1 = run_nested_with_single(draw=replay, n_sends=n_sends)
+    probe1, yields1 = await run_dunder_enter_single(draw=replay, n_sends=n_sends)
+
+    # ic(probe1.calls)
+    # ic(yields1)
 
     assert probe0.calls == probe1.calls
     assert yields0 == yields1
