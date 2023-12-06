@@ -98,13 +98,18 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
             entered.append(ctx)
             ys.append(y)
 
+        # Yield at least once even if an empty `ctxs` is given.
+        # Receive a value from the `with` block sent by `gen.send()`.
         sent = yield ys
 
         if ctxs:
             try:
+                # Send the received value to the context managers
+                # until at least one of them exits.
                 while True:
                     sent = yield [ctx.gen.send(sent) for ctx in reversed(ctxs)]
             except StopIteration:
+                # A context manager exited.
                 pass
 
     except BaseException:
@@ -112,7 +117,7 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
     else:
         exc_info = (None, None, None)
     finally:
-        # Exit the remaining context managers from the innermost to the outermost.
+        # Exit the entered context managers from the innermost to the outermost.
         while entered:
             ctx = entered.pop()
             try:
