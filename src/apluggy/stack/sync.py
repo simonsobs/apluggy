@@ -1,6 +1,6 @@
 import contextlib
 import sys
-from collections.abc import Generator, Sequence
+from collections.abc import Generator, Iterable
 from typing import Any, TypeVar
 
 from .types import GenCtxMngr
@@ -9,7 +9,7 @@ T = TypeVar('T')
 
 
 @contextlib.contextmanager
-def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+def stack_gen_ctxs(ctxs: Iterable[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
     '''Manage multiple context managers with the support of the `gen` attribute.
 
     A context manager can receive values inside the `with` block with multiple
@@ -102,12 +102,12 @@ def stack_gen_ctxs(ctxs: Sequence[GenCtxMngr[T]]) -> Generator[list[T], Any, Any
         # Receive a value from the `with` block sent by `gen.send()`.
         sent = yield ys
 
-        if ctxs:
+        if entered:
             try:
                 # Send the received value to the context managers
                 # until at least one of them exits.
                 while True:
-                    sent = yield [ctx.gen.send(sent) for ctx in reversed(ctxs)]
+                    sent = yield [ctx.gen.send(sent) for ctx in reversed(entered)]
             except StopIteration:
                 # A context manager exited.
                 pass
