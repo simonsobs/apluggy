@@ -120,10 +120,10 @@ class PluginManager(PluginManager_):
 
     def register(
         self, plugin: _Plugin | Callable[[], _Plugin], name: Optional[str] = None
-    ) -> None:
+    ) -> str | None:
         if callable(plugin):
             plugin = plugin()
-        super().register(plugin, name=name)
+        return super().register(plugin, name=name)
 
     def get_canonical_name(self, plugin: _Plugin) -> str:
         '''Override to include class names in plugin names.'''
