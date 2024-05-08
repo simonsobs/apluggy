@@ -2,7 +2,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from apluggy import stack_gen_ctxs
-from apluggy.test import RecordReturns, ReplayReturns
+from tests.utils import RecordReturns, ReplayReturns
 
 from .refs import dunder_enter
 from .runner import run

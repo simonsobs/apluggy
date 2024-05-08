@@ -3,7 +3,7 @@ from functools import partial
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from apluggy.test import RecordReturns, ReplayReturns
+from tests.utils import RecordReturns, ReplayReturns
 
 from .refs import dunder_enter, exit_stack, nested_with
 from .runner import run

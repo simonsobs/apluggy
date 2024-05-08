@@ -5,7 +5,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from apluggy.stack import AGenCtxMngr
-from apluggy.test import Probe, RecordReturns, ReplayReturns
+from tests.utils import Probe, RecordReturns, ReplayReturns
 
 from .exc import GenRaised, Thrown, WithRaised
 from .refs.dunder import dunder_enter_single
