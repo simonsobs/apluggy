@@ -6,7 +6,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from apluggy.stack import patch_aexit
-from apluggy.test import RecordReturns, ReplayReturns, st_none_or
+from tests.utils import RecordReturns, ReplayReturns, st_none_or
 
 
 @given(st.data())

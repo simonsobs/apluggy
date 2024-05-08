@@ -3,7 +3,7 @@ from typing import Any
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from apluggy.test import Probe, RecordReturns
+from tests.utils import Probe, RecordReturns
 
 from .exc import GenRaised, Thrown, WithRaised
 from .runner import mock_async_context, run_async_generator_context
