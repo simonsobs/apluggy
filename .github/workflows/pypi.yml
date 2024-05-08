@@ -9,7 +9,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    environment: pypi
+    permissions:
+      id-token: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -25,10 +27,8 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade hatch
 
-      - name:  Build
+      - name: Build
         run: hatch build
 
       - name: pypi-publish
-        uses: pypa/gh-action-pypi-publish@v1.6.4
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@release/v1
