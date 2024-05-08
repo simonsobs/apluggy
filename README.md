@@ -2,6 +2,7 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/apluggy.svg)](https://pypi.org/project/apluggy)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/apluggy.svg)](https://pypi.org/project/apluggy)
+
 [![Test Status](https://github.com/simonsobs/apluggy/actions/workflows/unit-test.yml/badge.svg)](https://github.com/simonsobs/apluggy/actions/workflows/unit-test.yml)
 [![Test Status](https://github.com/simonsobs/apluggy/actions/workflows/type-check.yml/badge.svg)](https://github.com/simonsobs/apluggy/actions/workflows/type-check.yml)
 [![codecov](https://codecov.io/gh/simonsobs/apluggy/branch/main/graph/badge.svg)](https://codecov.io/gh/simonsobs/apluggy)
@@ -19,12 +20,20 @@ which
 
 **Table of Contents**
 
-- [apluggy](#apluggy)
-  - [Installation](#installation)
-  - [How to use](#how-to-use)
-  - [Links](#links)
-  - [License](#license)
-  - [Contact](#contact)
+- [Installation](#installation)
+- [How to use](#how-to-use)
+  - [Start Python](#start-python)
+  - [Import packages](#import-packages)
+  - [Create hook specification and implementation decorators](#create-hook-specification-and-implementation-decorators)
+  - [Define hook specifications](#define-hook-specifications)
+  - [Define plugins](#define-plugins)
+  - [Create a plugin manager and register plugins](#create-a-plugin-manager-and-register-plugins)
+  - [Call hooks](#call-hooks)
+    - [Async function](#async-function)
+    - [Context manager](#context-manager)
+    - [Async context manager](#async-context-manager)
+- [Links](#links)
+- [License](#license)
 
 ---
 
@@ -282,15 +291,3 @@ inside Plugin_1.acontext(): after
 ## License
 
 - _apluggy_ is licensed under the [MIT](https://spdx.org/licenses/MIT.html) license.
-
----
-
-## Contact
-
-- [Tai Sakuma](https://github.com/TaiSakuma) <span itemscope
-  itemtype="https://schema.org/Person"><a itemprop="sameAs"
-  content="https://orcid.org/0000-0003-3225-9861"
-  href="https://orcid.org/0000-0003-3225-9861" target="orcid.widget" rel="me
-  noopener noreferrer" style="vertical-align:text-top;"><img
-  src="https://orcid.org/sites/default/files/images/orcid_16x16.png"
-  style="width:1em;margin-right:.5em;" alt="ORCID iD icon"></a></span>
