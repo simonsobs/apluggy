@@ -9,6 +9,14 @@ updates:
     schedule:
       interval: "daily"
 
+  # For `ci/latest/requirements.txt`, used in unit-test-latest.yml
+  - package-ecosystem: "pip"
+    directory: "/ci/latest"
+    schedule:
+      interval: "daily"
+
+  # Note: `ci/minimum/requirements.txt` is not updated by Dependabot.
+
   #
   - package-ecosystem: "github-actions"
     directory: "/"
