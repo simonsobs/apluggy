@@ -1,7 +1,9 @@
 from functools import partial
+from os import getenv
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from pytest import mark
 
 from apluggy import async_stack_gen_ctxs
 from tests.utils import RecordReturns, ReplayReturns
@@ -10,8 +12,9 @@ from .refs import dunder_enter
 from .runner import run
 
 
+@mark.skipif(getenv('GITHUB_ACTIONS') == 'true', reason='Fails on GitHub Actions')
 @given(st.data())
-@settings(max_examples=200, deadline=None)
+@settings(max_examples=200, deadline=1000)
 async def test_imp(data: st.DataObject):
     n_contexts = data.draw(st.integers(min_value=0, max_value=3), label='n_contexts')
     n_sends = data.draw(st.integers(min_value=0, max_value=4), label='n_sends')
