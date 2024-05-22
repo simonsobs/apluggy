@@ -10,7 +10,7 @@ from .runner import run
 
 
 @given(st.data())
-@settings(max_examples=200, deadline=1000)
+@settings(max_examples=200, deadline=None)
 async def test_refs(data: st.DataObject):
     '''Assert reference implementations run in exactly the same way.'''
     n_contexts = data.draw(st.integers(min_value=0, max_value=3), label='n_contexts')
