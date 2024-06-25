@@ -44,7 +44,7 @@ jobs:
 
       - name: Install packages
         run: |
-          pip install --upgrade pip
+          pip list
           pip install -e '.[tests]'
           pip install -r ci/minimum/requirements.txt
           pip list
