@@ -72,7 +72,7 @@ target_version = ['py310', 'py311', 'py312']
 [tool.coverage.run]
 branch = true
 parallel = true
-omit = ["src/apluggy/__about__.py"]
+source = ["src/apluggy", "tests"]
 
 [tool.coverage.report]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
