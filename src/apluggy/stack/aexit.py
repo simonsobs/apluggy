@@ -1,4 +1,5 @@
 import contextlib
+import sys
 from collections.abc import AsyncGenerator, Generator
 from typing import TypeVar
 
@@ -6,6 +7,11 @@ from .types import AGenCtxMngr
 
 T = TypeVar('T')
 U = TypeVar('U')
+
+if sys.version_info < (3, 10):
+
+    async def anext(ait):
+        return await ait.__anext__()
 
 
 @contextlib.contextmanager
