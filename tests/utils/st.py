@@ -1,9 +1,15 @@
 import inspect
+import sys
 from collections import deque
 from collections.abc import Callable
-from typing import Generic, Optional, ParamSpec, TypeVar
+from typing import Generic, Optional, TypeVar
 
 from hypothesis import strategies as st
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
 
 P = ParamSpec('P')
 T = TypeVar('T')
