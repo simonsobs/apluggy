@@ -17,21 +17,35 @@ def dunder_enter(
     sequential: bool = False,
 ) -> AGenCtxMngr[list[T]]:
     ctxs = list(ctxs)
-    match len(ctxs):
-        case 0:
-            return dunder_enter_null(ctxs)
-        case 1:
-            return dunder_enter_single(ctxs, fix_reraise=fix_reraise)
-        case 2:
-            return dunder_enter_double(
-                ctxs, fix_reraise=fix_reraise, sequential=sequential
-            )
-        case 3:
-            return dunder_enter_triple(
-                ctxs, fix_reraise=fix_reraise, sequential=sequential
-            )
-        case _:
-            raise NotImplementedError()
+    # TODO: When Python 3.9 support is dropped
+    # match len(ctxs):
+    #     case 0:
+    #         return dunder_enter_null(ctxs)
+    #     case 1:
+    #         return dunder_enter_single(ctxs, fix_reraise=fix_reraise)
+    #     case 2:
+    #         return dunder_enter_double(
+    #             ctxs, fix_reraise=fix_reraise, sequential=sequential
+    #         )
+    #     case 3:
+    #         return dunder_enter_triple(
+    #             ctxs, fix_reraise=fix_reraise, sequential=sequential
+    #         )
+    #     case _:
+    #         raise NotImplementedError()
+    if not ctxs:
+        return dunder_enter_null(ctxs)
+    if len(ctxs) == 1:
+        return dunder_enter_single(ctxs, fix_reraise=fix_reraise)
+    if len(ctxs) == 2:
+        return dunder_enter_double(
+            ctxs, fix_reraise=fix_reraise, sequential=sequential
+        )
+    if len(ctxs) == 3:
+        return dunder_enter_triple(
+            ctxs, fix_reraise=fix_reraise, sequential=sequential
+        )
+    raise NotImplementedError()
 
 
 @contextlib.asynccontextmanager

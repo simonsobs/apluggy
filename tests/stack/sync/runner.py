@@ -126,19 +126,32 @@ def run_generator_context(
             ii = f'{i+1}/{n_sends}'
             action = draw(st.sampled_from(['send', 'throw', 'close']))
             try:
-                match action:
-                    case 'send':
-                        sent = f'send-{ii}'
-                        probe('with', ii, 'send', f'{sent!r}')
-                        y = ctx.gen.send(sent)
-                        yields.append(y)
-                    case 'throw':
-                        exc = Thrown(f'{ii}')
-                        probe('with', ii, 'throw', f'{exc!r}')
-                        ctx.gen.throw(exc)
-                    case 'close':
-                        probe('with', ii, 'close')
-                        ctx.gen.close()
+                # TODO: When Python 3.9 support is dropped
+                # match action:
+                #     case 'send':
+                #         sent = f'send-{ii}'
+                #         probe('with', ii, 'send', f'{sent!r}')
+                #         y = ctx.gen.send(sent)
+                #         yields.append(y)
+                #     case 'throw':
+                #         exc = Thrown(f'{ii}')
+                #         probe('with', ii, 'throw', f'{exc!r}')
+                #         ctx.gen.throw(exc)
+                #     case 'close':
+                #         probe('with', ii, 'close')
+                #         ctx.gen.close()
+                if action == 'send':
+                    sent = f'send-{ii}'
+                    probe('with', ii, 'send', f'{sent!r}')
+                    y = ctx.gen.send(sent)
+                    yields.append(y)
+                elif action == 'throw':
+                    exc = Thrown(f'{ii}')
+                    probe('with', ii, 'throw', f'{exc!r}')
+                    ctx.gen.throw(exc)
+                elif action == 'close':
+                    probe('with', ii, 'close')
+                    ctx.gen.close()
             except GeneratorExit:
                 raise
             except StopIteration as e:

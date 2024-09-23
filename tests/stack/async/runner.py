@@ -153,19 +153,32 @@ async def run_async_generator_context(
             ii = f'{i+1}/{n_sends}'
             action = draw(st.sampled_from(['send', 'throw', 'close']))
             try:
-                match action:
-                    case 'send':
-                        sent = f'send-{ii}'
-                        probe('with', ii, 'send', f'{sent!r}')
-                        y = await ctx.gen.asend(sent)
-                        yields.append(y)
-                    case 'throw':
-                        exc = Thrown(f'{ii}')
-                        probe('with', ii, 'throw', f'{exc!r}')
-                        await ctx.gen.athrow(exc)
-                    case 'close':
-                        probe('with', ii, 'close')
-                        await ctx.gen.aclose()
+                # TODO: When Python 3.9 support is dropped
+                # match action:
+                #     case 'send':
+                #         sent = f'send-{ii}'
+                #         probe('with', ii, 'send', f'{sent!r}')
+                #         y = await ctx.gen.asend(sent)
+                #         yields.append(y)
+                #     case 'throw':
+                #         exc = Thrown(f'{ii}')
+                #         probe('with', ii, 'throw', f'{exc!r}')
+                #         await ctx.gen.athrow(exc)
+                #     case 'close':
+                #         probe('with', ii, 'close')
+                #         await ctx.gen.aclose()
+                if action == 'send':
+                    sent = f'send-{ii}'
+                    probe('with', ii, 'send', f'{sent!r}')
+                    y = await ctx.gen.asend(sent)
+                    yields.append(y)
+                elif action == 'throw':
+                    exc = Thrown(f'{ii}')
+                    probe('with', ii, 'throw', f'{exc!r}')
+                    await ctx.gen.athrow(exc)
+                elif action == 'close':
+                    probe('with', ii, 'close')
+                    await ctx.gen.aclose()
             except GeneratorExit:
                 raise
             except StopAsyncIteration as e:

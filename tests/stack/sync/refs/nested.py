@@ -9,19 +9,31 @@ T = TypeVar('T')
 
 def nested_with(ctxs: Iterable[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
     ctxs = list(ctxs)
-    match len(ctxs):
-        case 0:
-            return nested_with_null(ctxs)
-        case 1:
-            return nested_with_single(ctxs)
-        case 2:
-            return nested_with_double(ctxs)
-        case 3:
-            return nested_with_triple(ctxs)
-        case 4:
-            return nested_with_quadruple(ctxs)
-        case _:
-            raise NotImplementedError()
+    # TODO: When Python 3.9 support is dropped
+    # match len(ctxs):
+    #     case 0:
+    #         return nested_with_null(ctxs)
+    #     case 1:
+    #         return nested_with_single(ctxs)
+    #     case 2:
+    #         return nested_with_double(ctxs)
+    #     case 3:
+    #         return nested_with_triple(ctxs)
+    #     case 4:
+    #         return nested_with_quadruple(ctxs)
+    #     case _:
+    #         raise NotImplementedError()
+    if not ctxs:
+        return nested_with_null(ctxs)
+    if len(ctxs) == 1:
+        return nested_with_single(ctxs)
+    if len(ctxs) == 2:
+        return nested_with_double(ctxs)
+    if len(ctxs) == 3:
+        return nested_with_triple(ctxs)
+    if len(ctxs) == 4:
+        return nested_with_quadruple(ctxs)
+    raise NotImplementedError()
 
 
 @contextlib.contextmanager
