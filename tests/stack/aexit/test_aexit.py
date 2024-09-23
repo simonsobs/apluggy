@@ -27,23 +27,37 @@ async def test_patch_aexit(data: st.DataObject) -> None:
     @contextlib.contextmanager
     def ctx(draw: st.DrawFn) -> Generator[str, None, None]:
         yield 'foo'
-        match draw(st_ctx_action):
-            case 'raise':
-                raise exc
-            case 'yield':
-                yield 'bar'
+        # TODO: When Python 3.9 support is dropped
+        # match draw(st_ctx_action):
+        #     case 'raise':
+        #         raise exc
+        #     case 'yield':
+        #         yield 'bar'
+        action = draw(st_ctx_action)
+        if action == 'raise':
+            raise exc
+        elif action == 'yield':
+            yield 'bar'
 
     draw = RecordReturns(data.draw)
     try:
         with (c := ctx(draw)) as x:
             assert x == 'foo'
-            match draw(st_with_action):
-                case 'send':
-                    c.gen.send('sent')
-                case 'throw':
-                    c.gen.throw(exc)
-                case 'close':
-                    c.gen.close()
+            # TODO: When Python 3.9 support is dropped
+            # match draw(st_with_action):
+            #     case 'send':
+            #         c.gen.send('sent')
+            #     case 'throw':
+            #         c.gen.throw(exc)
+            #     case 'close':
+            #         c.gen.close()
+            action = draw(st_with_action)
+            if action == 'send':
+                c.gen.send('sent')
+            elif action == 'throw':
+                c.gen.throw(exc)
+            elif action == 'close':
+                c.gen.close()
     except Exception:
         exc_expected = sys.exc_info()
     else:
@@ -53,11 +67,17 @@ async def test_patch_aexit(data: st.DataObject) -> None:
     @contextlib.asynccontextmanager
     async def actx(draw: st.DrawFn) -> AsyncGenerator[str, None]:
         yield 'foo'
-        match draw(st_ctx_action):
-            case 'raise':
-                raise exc
-            case 'yield':
-                yield 'bar'
+        # TODO: When Python 3.9 support is dropped
+        # match draw(st_ctx_action):
+        #     case 'raise':
+        #         raise exc
+        #     case 'yield':
+        #         yield 'bar'
+        action = draw(st_ctx_action)
+        if action == 'raise':
+            raise exc
+        elif action == 'yield':
+            yield 'bar'
 
     draw = ReplayReturns(draw)
 
@@ -69,13 +89,21 @@ async def test_patch_aexit(data: st.DataObject) -> None:
             x = await ac.__aenter__()
             try:
                 assert x == 'foo'
-                match draw(st_with_action):
-                    case 'send':
-                        await ac.gen.asend('sent')
-                    case 'throw':
-                        await ac.gen.athrow(exc)
-                    case 'close':
-                        await ac.gen.aclose()
+                # TODO: When Python 3.9 support is dropped
+                # match draw(st_with_action):
+                #     case 'send':
+                #         await ac.gen.asend('sent')
+                #     case 'throw':
+                #         await ac.gen.athrow(exc)
+                #     case 'close':
+                #         await ac.gen.aclose()
+                action = draw(st_with_action)
+                if action == 'send':
+                    await ac.gen.asend('sent')
+                elif action == 'throw':
+                    await ac.gen.athrow(exc)
+                elif action == 'close':
+                    await ac.gen.aclose()
             except Exception:
                 if not await ac.__aexit__(*sys.exc_info()):
                     raise

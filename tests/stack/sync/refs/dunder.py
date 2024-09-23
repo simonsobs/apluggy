@@ -10,19 +10,31 @@ T = TypeVar('T')
 
 def dunder_enter(ctxs: Iterable[GenCtxMngr[T]]) -> GenCtxMngr[list[T]]:
     ctxs = list(ctxs)
-    match len(ctxs):
-        case 0:
-            return dunder_enter_null(ctxs)
-        case 1:
-            return dunder_enter_single(ctxs)
-        case 2:
-            return dunder_enter_double(ctxs)
-        case 3:
-            return dunder_enter_triple(ctxs)
-        case 4:
-            return dunder_enter_quadruple(ctxs)
-        case _:
-            raise NotImplementedError()
+    # TODO: When Python 3.9 support is dropped
+    # match len(ctxs):
+    #     case 0:
+    #         return dunder_enter_null(ctxs)
+    #     case 1:
+    #         return dunder_enter_single(ctxs)
+    #     case 2:
+    #         return dunder_enter_double(ctxs)
+    #     case 3:
+    #         return dunder_enter_triple(ctxs)
+    #     case 4:
+    #         return dunder_enter_quadruple(ctxs)
+    #     case _:
+    #         raise NotImplementedError()
+    if not ctxs:
+        return dunder_enter_null(ctxs)
+    if len(ctxs) == 1:
+        return dunder_enter_single(ctxs)
+    if len(ctxs) == 2:
+        return dunder_enter_double(ctxs)
+    if len(ctxs) == 3:
+        return dunder_enter_triple(ctxs)
+    if len(ctxs) == 4:
+        return dunder_enter_quadruple(ctxs)
+    raise NotImplementedError()
 
 
 @contextlib.contextmanager

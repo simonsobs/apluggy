@@ -1,7 +1,7 @@
 from functools import partial
 from os import getenv
 
-from hypothesis import given, settings
+from hypothesis import Phase, given, settings
 from hypothesis import strategies as st
 from pytest import mark
 
@@ -14,7 +14,7 @@ from .runner import run
 
 @mark.skipif(getenv('GITHUB_ACTIONS') == 'true', reason='Fails on GitHub Actions')
 @given(st.data())
-@settings(max_examples=200, deadline=1000)
+@settings(max_examples=200, phases=(Phase.generate,))  # Avoid shrinking
 async def test_imp(data: st.DataObject):
     n_contexts = data.draw(st.integers(min_value=0, max_value=3), label='n_contexts')
     n_sends = data.draw(st.integers(min_value=0, max_value=4), label='n_sends')

@@ -1,5 +1,11 @@
 import inspect
-from typing import Any, ParamSpec, TypeVar
+import sys
+from typing import Any, TypeVar
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
 
 P = ParamSpec('P')
 T = TypeVar('T')
@@ -45,10 +51,16 @@ class Probe:
         self.calls.append(record)
 
     def _fmt_tag(self, tag: Any) -> str:
-        match tag:
-            case Exception():
-                return repr(tag)
-            case BaseException():
-                return tag.__class__.__name__
-            case _:
-                return f'{tag}'
+        # TODO: When Python 3.9 support is dropped
+        # match tag:
+        #     case Exception():
+        #         return repr(tag)
+        #     case BaseException():
+        #         return tag.__class__.__name__
+        #     case _:
+        #         return f'{tag}'
+        if isinstance(tag, Exception):
+            return repr(tag)
+        if isinstance(tag, BaseException):
+            return tag.__class__.__name__
+        return f'{tag}'

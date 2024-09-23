@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from pluggy import PluginManager as PluginManager_
 from pluggy._hooks import _Plugin
@@ -119,8 +119,8 @@ class PluginManager(PluginManager_):
         self.awith_reverse = AWith(self, reverse=True)
 
     def register(
-        self, plugin: _Plugin | Callable[[], _Plugin], name: Optional[str] = None
-    ) -> str | None:
+        self, plugin: Union[_Plugin, Callable[[], _Plugin]], name: Optional[str] = None
+    ) -> Union[str, None]:
         if callable(plugin):
             plugin = plugin()
         return super().register(plugin, name=name)
