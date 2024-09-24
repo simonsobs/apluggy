@@ -8,6 +8,14 @@ on:
     branches:
       - main
 
+concurrency:
+  group: type-check-${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -23,8 +31,9 @@ jobs:
       - name: Install packages
         run: |
           pip install --upgrade pip
-          pip install --use-pep517 -e '.[tests]'
+          pip install -e '.[tests]'
           pip install --upgrade mypy
+          pip list
 
       - name: Run mypy
         run: mypy --show-traceback src/
