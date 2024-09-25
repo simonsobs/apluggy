@@ -47,15 +47,6 @@ source = "regex_commit"
 path = "src/apluggy/__about__.py"
 tag_sign = false
 
-[tool.hatch.envs.default]
-dependencies = ["pytest", "pytest-cov"]
-[tool.hatch.envs.default.scripts]
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/apluggy --cov=tests {args}"
-no-cov = "cov --no-cov {args}"
-
-[[tool.hatch.envs.test.matrix]]
-python = ["39", "310", "311", "312"]
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 timeout = 60
