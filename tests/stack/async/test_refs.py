@@ -34,7 +34,7 @@ async def test_refs(data: st.DataObject):
 
     # ic(probe0.calls)
     # ic(yields0)
-    
+
     #
     if not fix_reraise and sequential:
         replay = ReplayReturns(draw)
