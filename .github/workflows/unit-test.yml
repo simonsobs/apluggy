@@ -43,7 +43,7 @@ jobs:
       - name: Run tests
         run: pytest -vv --cov --cov-report=xml
 
-      - name: Check Codecov token  # e.g., Dependabot doesn't have the CODECOV_TOKEN
+      - name: Check Codecov token # e.g., Dependabot doesn't have the CODECOV_TOKEN
         id: check_codecov_token
         run: |
           if [ -n "${{ secrets.CODECOV_TOKEN }}" ]; then
