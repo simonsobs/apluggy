@@ -7,5 +7,5 @@ types-decorator==5.1.8.20240310
 pytest-asyncio==0.24.0
 pytest-cov==5.0.0
 pytest-timeout==2.3.1
-pytest==8.3.3
+pytest==8.3.4
 hypothesis==6.112.5
