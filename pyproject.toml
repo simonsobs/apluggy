@@ -92,8 +92,13 @@ parallel = true
 source = ["src/apluggy", "tests"]
 
 [tool.coverage.report]
-exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
-
+exclude_lines = [
+  "pragma: no cover",
+  'if __name__ == "__main__":',
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  "^ *\\.\\.\\.$",
+]
 
 [[tool.mypy.overrides]]
 module = ["pluggy.*", "apluggy.*"]
