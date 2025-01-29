@@ -1,8 +1,9 @@
 from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
+from hmac import new
 from itertools import count
 from types import TracebackType
-from typing import Optional
+from typing import Optional, Union
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -18,13 +19,17 @@ class MockException(Exception):
 
 
 class MockContext:
-    def __init__(self) -> None:
+    def __init__(self, data: st.DataObject) -> None:
+        self._draw = data.draw
         self._count = count(1).__next__
         self._created = list[int]()
         self._entered = list[int]()
         self._exiting = list[int]()
         self._raised = list[tuple[int, Exception]]()
         self._raised_expected = list[tuple[int, Exception]]()
+        self._except_action = dict[int, tuple[str, Union[None, Exception]]]()
+        self._handled_expected: Union[bool, None] = False
+        self._raised_on_exit_expected: Union[Exception, None] = None
 
     def __call__(self) -> GenCtxMngr:
         id = self._count()
@@ -37,8 +42,13 @@ class MockContext:
                 yield id
             except MockException as e:
                 self._raised.append((id, e))
-                assert e is self._exc
-                raise
+                action, exc = self._except_action[id]
+                if action == 'reraise':
+                    raise
+                if action == 'raise':
+                    assert exc is not None
+                    raise exc
+                assert action == 'handle'
             finally:
                 self._exiting.append(id)
 
@@ -48,6 +58,9 @@ class MockContext:
     def context(self) -> Iterator[None]:
         self._raised.clear()
         self._raised_expected.clear()
+        self._except_action.clear()
+        self._handled_expected = False
+        self._raised_on_exit_expected = None
         yield
 
     def assert_created(self, n: int) -> None:
@@ -56,9 +69,13 @@ class MockContext:
     def assert_entered(self) -> None:
         assert self._entered == self._created
 
-    def assert_exited(self, handled: bool | None) -> None:
+    def assert_exited(
+        self, handled: Union[bool, None], raised: Union[Exception, None]
+    ) -> None:
         assert self._exiting == list(reversed(self._entered))
-        assert not handled
+        # assert not handled
+        assert handled is self._handled_expected
+        assert raised is self._raised_on_exit_expected
         self.assert_raised()
 
     def assert_raised(self) -> None:
@@ -68,8 +85,28 @@ class MockContext:
         assert self._raised == self._raised_expected
 
     def before_raise(self, exc: Exception) -> None:
-        self._exc = exc
-        self._raised_expected[:] = [(id, exc) for id in reversed(self._entered)]
+        self._raised_expected.clear()
+        self._except_action.clear()
+        ACTIONS = ('handle', 'reraise', 'raise')
+        for id in reversed(self._entered):
+            action = self._draw(st.sampled_from(ACTIONS))
+            if action == 'handle':
+                self._raised_expected.append((id, exc))
+                self._except_action[id] = (action, None)
+                self._handled_expected = True
+                self._raised_on_exit_expected = None
+                break
+            elif action == 'reraise':
+                self._raised_expected.append((id, exc))
+                self._except_action[id] = (action, None)
+            elif action == 'raise':
+                self._raised_expected.append((id, exc))
+                exc = MockException(f'{id}')
+                self._except_action[id] = (action, exc)
+                self._handled_expected = None
+                self._raised_on_exit_expected = exc
+        ic(self._raised_expected)
+        ic(self._except_action)
 
 
 class StatefulTest:
@@ -90,11 +127,13 @@ class StatefulTest:
         # self._gen_enabled = True
         # stack = dunder_enter
 
-        self._mock_context = MockContext()
+        self._mock_context = MockContext(data=data)
         ctxs = [self._mock_context() for _ in range(self._n_ctxs)]
         self._mock_context.assert_created(self._n_ctxs)
 
         self._obj = stack(iter(ctxs))
+
+        self._raised: Exception | None = None
 
     @property
     def methods(self) -> list[Callable[[], None]]:
@@ -105,7 +144,7 @@ class StatefulTest:
 
     @contextmanager
     def context(self) -> Iterator[None]:
-        self._raised: Exception | None = None
+        self._raised = None
         with self._mock_context.context():
             yield
 
@@ -131,22 +170,30 @@ class StatefulTest:
         traceback: Optional[TracebackType],
     ) -> Optional[bool]:
         assert exc_value is self._raised
-        handled = self._obj.__exit__(exc_type, exc_value, traceback)
-        self._mock_context.assert_exited(handled=handled)
+        ic(exc_value)
+        handled: Union[bool, None] = None
+        raised: Union[Exception, None] = None
+        try:
+            handled = self._obj.__exit__(exc_type, exc_value, traceback)
+        except Exception as e:
+            raised = e
+        ic(handled)
+        self._mock_context.assert_exited(handled=handled, raised=raised)
         return True
 
 
 @settings(max_examples=100)
 @given(data=st.data())
 def test_property(data: st.DataObject) -> None:
-    # print()
+    print()
     test = StatefulTest(data)
 
     methods = data.draw(st.lists(st.sampled_from(test.methods)))
 
     with test:
-        with test.context():
-            # test.raise_()
-            # raise MockException()
-            for method in methods:
+        # with test.context():
+        #     # test.raise_()
+        #     # raise MockException()
+        for method in methods:
+            with test.context():
                 method()
