@@ -3,14 +3,14 @@ from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Se
 from contextlib import contextmanager
 from itertools import count
 from types import TracebackType
-from typing import Literal, Optional, TypeVar, Union
+from typing import Literal, Optional, Union
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from apluggy import stack_gen_ctxs
 from apluggy.stack import GenCtxMngr
-from tests.utils import st_none_or
+from tests.utils import st_iter_until
 
 from .refs import dunder_enter, exit_stack, nested_with
 
@@ -18,56 +18,6 @@ if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
     from typing_extensions import TypeAlias
-
-T = TypeVar('T')
-
-
-def take_until(condition: Callable[[T], bool], iterable: Iterable[T]) -> Iterator[T]:
-    '''Iterate until after yielding the first element that satisfies the condition.'''
-    for x in iterable:
-        yield x
-        if condition(x):
-            break
-
-
-@st.composite
-def st_iter_until(
-    draw: st.DrawFn,
-    st_: st.SearchStrategy[T],
-    /,
-    *,
-    last: T,
-    max_size: Optional[int] = None,
-) -> Iterator[T]:
-    '''A strategy for iterators that draw from `st_` until `last` is drawn.'''
-    counts = range(max_size) if max_size is not None else count()
-    gen = (draw(st_) for _ in counts)
-    return take_until(lambda x: x == last, gen)
-
-
-@given(...)
-def test_take_until(items: list[int], last: int) -> None:
-    actual = list(take_until(lambda x: x == last, iter(items)))
-    expected = items[: items.index(last) + 1] if last in items else items
-    assert actual == expected
-
-
-@given(data=st.data())
-def test_iterable_until(data: st.DataObject) -> None:
-    samples = data.draw(st.lists(st.text(), min_size=1))
-    st_ = st.sampled_from(samples)
-    last = data.draw(st_)
-    max_size = data.draw(st_none_or(st.integers(min_value=0, max_value=10)))
-
-    it = data.draw(st_iter_until(st_, last=last, max_size=max_size))
-    res = list(it)
-
-    assert last not in res[:-1]
-
-    if max_size is None:
-        assert last == res[-1]
-    else:
-        assert len(res) == max_size or (last == res[-1] and len(res) < max_size)
 
 
 class MockException(Exception):

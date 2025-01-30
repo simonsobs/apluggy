@@ -1,7 +1,8 @@
 import inspect
 import sys
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from itertools import count
 from typing import Generic, Optional, TypeVar
 
 from hypothesis import strategies as st
@@ -10,6 +11,8 @@ if sys.version_info >= (3, 10):
     from typing import ParamSpec
 else:
     from typing_extensions import ParamSpec
+
+from .iteration import take_until
 
 P = ParamSpec('P')
 T = TypeVar('T')
@@ -23,6 +26,21 @@ def st_none_or(st_: st.SearchStrategy[T]) -> st.SearchStrategy[Optional[T]]:
     True
     '''
     return st.one_of(st.none(), st_)
+
+
+@st.composite
+def st_iter_until(
+    draw: st.DrawFn,
+    st_: st.SearchStrategy[T],
+    /,
+    *,
+    last: T,
+    max_size: Optional[int] = None,
+) -> Iterator[T]:
+    '''A strategy for iterators that draw from `st_` until `last` is drawn.'''
+    counts = range(max_size) if max_size is not None else count()
+    gen = (draw(st_) for _ in counts)
+    return take_until(lambda x: x == last, gen)
 
 
 class RecordReturns(Generic[P, T]):
