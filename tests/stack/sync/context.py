@@ -19,24 +19,30 @@ from .exc import MockException
 
 
 class ExceptionHandler:
-    ExceptActionName = Literal['handle', 'reraise', 'raise']
-    ExceptActionMap: TypeAlias = Mapping[
-        int, tuple[ExceptActionName, Union[None, Exception]]
-    ]
-    EXCEPT_ACTIONS: tuple[ExceptActionName, ...] = ('handle', 'reraise', 'raise')
+    ActionName = Literal['handle', 'reraise', 'raise']
+    ActionMap: TypeAlias = Mapping[int, tuple[ActionName, Union[None, Exception]]]
+    ACTIONS: tuple[ActionName, ...] = ('handle', 'reraise', 'raise')
 
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
-        self._raised = list[tuple[int, Exception]]()
-        self._raised_expected: Sequence[tuple[int, Exception]] = ()
-        self._except_action: Union[ExceptionHandler.ExceptActionMap | None] = None
-        self._handled_expected: Union[bool, None] = False
-        self._raised_on_exit_expected: Union[Exception, None] = None
+        self._clear()
 
-    def _handle_exception(self, id: int, exc: Exception) -> None:
-        self._raised.append((id, exc))
-        assert self._except_action is not None
-        action, exc1 = self._except_action[id]
+    def _clear(self) -> None:
+        self._exc_actual: list[tuple[int, Exception]] = []
+        self._exc_expected: Sequence[tuple[int, Exception]] = ()
+        self._action_map: Union[ExceptionHandler.ActionMap | None] = None
+        self._exit_expected: Union[bool, None] = False
+        self._exc_on_exit_expected: Union[Exception, None] = None
+
+    @contextmanager
+    def context(self) -> Iterator[None]:
+        self._clear()
+        yield
+
+    def handle(self, id: int, exc: Exception) -> None:
+        self._exc_actual.append((id, exc))
+        assert self._action_map is not None
+        action, exc1 = self._action_map[id]
         if action == 'reraise':
             raise
         if action == 'raise':
@@ -44,44 +50,33 @@ class ExceptionHandler:
             raise exc1
         assert action == 'handle'
 
-    @contextmanager
-    def context(self) -> Iterator[None]:
-        self._raised.clear()
-        self._raised_expected = ()
-        self._except_action = None
-        self._handled_expected = False
-        self._raised_on_exit_expected = None
-        yield
-
     def assert_exited(
         self, handled: Union[bool, None], raised: Union[Exception, None]
     ) -> None:
-        assert handled is self._handled_expected
-        assert raised is self._raised_on_exit_expected
+        assert handled is self._exit_expected
+        assert raised is self._exc_on_exit_expected
         self.assert_raised()
 
     def assert_raised(self) -> None:
         # The `__eq__` comparison of `Exception` objects is default to the
         # `__eq__` method of `object`, which uses the `is` comparison.
         # https://docs.python.org/3/reference/datamodel.html#object.__eq__
-        assert self._raised == list(self._raised_expected)
+        assert self._exc_actual == list(self._exc_expected)
 
     def before_raise(self, exc: Exception, ids: Iterable[int]) -> None:
-        self._except_action = self._draw_except_actions(ids)
-        self._raised_expected = self._compose_raised_expected(exc, self._except_action)
-        self._handled_expected = self._determine_handled_expected(self._except_action)
-        self._raised_on_exit_expected = self._determine_raised_on_exit_expected(
-            self._except_action
-        )
+        self._action_map = self._draw_actions(ids)
+        self._exc_expected = self._expect_exc(exc, self._action_map)
+        self._exit_expected = self._expect_exit(self._action_map)
+        self._exc_on_exit_expected = self._expect_exc_on_exit(self._action_map)
 
-    def _draw_except_actions(self, ids: Iterable[int]) -> ExceptActionMap:
+    def _draw_actions(self, ids: Iterable[int]) -> ActionMap:
         # e.g., [4, 3, 2, 1]
         ids = list(ids)
 
-        st_actions = st.sampled_from(self.EXCEPT_ACTIONS)
+        st_actions = st.sampled_from(self.ACTIONS)
 
         # e.g., ['reraise', 'reraise', 'raise', 'handle']
-        actions: Iterator[ExceptionHandler.ExceptActionName] = self._draw(
+        actions: Iterator[ExceptionHandler.ActionName] = self._draw(
             st_iter_until(st_actions, last='handle', max_size=len(ids))
         )
 
@@ -96,8 +91,8 @@ class ExceptionHandler:
             for id, a in zip(ids, actions)
         }
 
-    def _compose_raised_expected(
-        self, exc: Exception, action_map: ExceptActionMap
+    def _expect_exc(
+        self, exc: Exception, action_map: ActionMap
     ) -> tuple[tuple[int, Exception], ...]:
         # This method relies on the order of the items in `action_map`.
         # e.g.:
@@ -126,9 +121,7 @@ class ExceptionHandler:
         # )
         return tuple(ret)
 
-    def _determine_handled_expected(
-        self, action_map: ExceptActionMap
-    ) -> Union[bool, None]:
+    def _expect_exit(self, action_map: ActionMap) -> Union[bool, None]:
         # This method relies on the order of the items in `action_map`.
         for action, _ in reversed(list(action_map.values())):
             if action == 'handle':
@@ -137,9 +130,7 @@ class ExceptionHandler:
                 return None
         return False
 
-    def _determine_raised_on_exit_expected(
-        self, action_map: ExceptActionMap
-    ) -> Union[Exception, None]:
+    def _expect_exc_on_exit(self, action_map: ActionMap) -> Union[Exception, None]:
         # This method relies on the order of the items in `action_map`.
         for action, exc1 in reversed(list(action_map.values())):
             if action == 'handle':
@@ -169,7 +160,7 @@ class MockContext:
             try:
                 yield id
             except MockException as e:
-                self._exception_handler._handle_exception(id, e)
+                self._exception_handler.handle(id, e)
             finally:
                 self._exiting.append(id)
 
