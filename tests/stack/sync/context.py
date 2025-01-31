@@ -144,6 +144,7 @@ class MockContext:
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
         self._count = count(1).__next__
+        self._n_ctxs = 0
         self._created = list[int]()
         self._entered = list[int]()
         self._exiting = list[int]()
@@ -151,7 +152,7 @@ class MockContext:
         self._exception_handler = ExceptionHandler(data)
 
     def __call__(self) -> GenCtxMngr:
-        id = self._count()
+        id = self._n_ctxs = self._count()
         self._created.append(id)
 
         @contextmanager
@@ -171,8 +172,8 @@ class MockContext:
         with self._exception_handler.context():
             yield
 
-    def assert_created(self, n: int) -> None:
-        assert len(self._created) == n
+    def assert_created(self) -> None:
+        assert len(self._created) == self._n_ctxs
 
     def assert_entered(self) -> None:
         assert self._entered == self._created
