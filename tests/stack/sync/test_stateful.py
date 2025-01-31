@@ -2,7 +2,7 @@ import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from types import TracebackType
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -83,15 +83,19 @@ class StatefulTest:
     ) -> Optional[bool]:
         # assert exc_value is self._raised
         # ic(exc_value)
-        handled: Union[bool, None] = None
-        raised: Union[Exception, None] = None
-        try:
-            handled = self._obj.__exit__(exc_type, exc_value, traceback)
-        except Exception as e:
-            raised = e
+        handled, raised = self._exit_stack(exc_type, exc_value, traceback)
         # ic(handled)
         self._mock_context.assert_exited(handled=handled, raised=raised)
         return True
+
+    def _exit_stack(
+        self, *args: Any, **kwargs: Any
+    ) -> tuple[Union[bool, None], Union[Exception, None]]:
+        try:
+            handled = self._obj.__exit__(*args, **kwargs)
+            return handled, None
+        except Exception as e:
+            return None, e
 
 
 @settings(max_examples=500)
