@@ -9,3 +9,7 @@ class Thrown(Exception):
 
 class Raised(Exception):
     pass
+
+
+class MockException(Exception):
+    pass
