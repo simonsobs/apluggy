@@ -44,7 +44,7 @@ class StatefulTest:
 
         self._obj = stack(iter(ctxs))
 
-        self._raised: Exception | None = None
+        self._raised: Union[Exception, None] = None
 
     @property
     def methods(self) -> list[Callable[[], None]]:
@@ -60,6 +60,7 @@ class StatefulTest:
             yield
 
     def send(self) -> None:
+        # y = self._obj.gen.send('send')
         pass
 
     def raise_(self) -> None:
@@ -99,12 +100,17 @@ def test_property(data: st.DataObject) -> None:
     # print()
     test = StatefulTest(data)
 
-    methods = data.draw(st.lists(st.sampled_from(test.methods)))
+    # methods = data.draw(st.lists(st.sampled_from(test.methods)))
 
     with test:
         # with test.context():
         #     # test.raise_()
         #     # raise MockException()
-        for method in methods:
-            with test.context():
-                method()
+        # for method in methods:
+        #     with test.context():
+        #         method()
+        if test.methods:
+            while data.draw(st.booleans()):
+                method = data.draw(st.sampled_from(test.methods))
+                with test.context():
+                    method()
