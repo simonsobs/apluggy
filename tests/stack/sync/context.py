@@ -18,7 +18,7 @@ else:
 from .exc import MockException
 
 
-class MockContext:
+class ExceptionHandler:
     ExceptActionName = Literal['handle', 'reraise', 'raise']
     ExceptActionMap: TypeAlias = Mapping[
         int, tuple[ExceptActionName, Union[None, Exception]]
@@ -27,39 +27,22 @@ class MockContext:
 
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
-        self._count = count(1).__next__
-        self._created = list[int]()
-        self._entered = list[int]()
-        self._exiting = list[int]()
         self._raised = list[tuple[int, Exception]]()
         self._raised_expected: Sequence[tuple[int, Exception]] = ()
-        self._except_action: Union[MockContext.ExceptActionMap | None] = None
+        self._except_action: Union[ExceptionHandler.ExceptActionMap | None] = None
         self._handled_expected: Union[bool, None] = False
         self._raised_on_exit_expected: Union[Exception, None] = None
 
-    def __call__(self) -> GenCtxMngr:
-        id = self._count()
-        self._created.append(id)
-
-        @contextmanager
-        def _ctx() -> Generator:
-            self._entered.append(id)
-            try:
-                yield id
-            except MockException as e:
-                self._raised.append((id, e))
-                assert self._except_action is not None
-                action, exc = self._except_action[id]
-                if action == 'reraise':
-                    raise
-                if action == 'raise':
-                    assert exc is not None
-                    raise exc
-                assert action == 'handle'
-            finally:
-                self._exiting.append(id)
-
-        return _ctx()
+    def _handle_exception(self, id: int, exc: Exception) -> None:
+        self._raised.append((id, exc))
+        assert self._except_action is not None
+        action, exc1 = self._except_action[id]
+        if action == 'reraise':
+            raise
+        if action == 'raise':
+            assert exc1 is not None
+            raise exc1
+        assert action == 'handle'
 
     @contextmanager
     def context(self) -> Iterator[None]:
@@ -70,17 +53,9 @@ class MockContext:
         self._raised_on_exit_expected = None
         yield
 
-    def assert_created(self, n: int) -> None:
-        assert len(self._created) == n
-
-    def assert_entered(self) -> None:
-        assert self._entered == self._created
-
     def assert_exited(
         self, handled: Union[bool, None], raised: Union[Exception, None]
     ) -> None:
-        assert self._exiting == list(reversed(self._entered))
-        # assert not handled
         assert handled is self._handled_expected
         assert raised is self._raised_on_exit_expected
         self.assert_raised()
@@ -91,8 +66,8 @@ class MockContext:
         # https://docs.python.org/3/reference/datamodel.html#object.__eq__
         assert self._raised == list(self._raised_expected)
 
-    def before_raise(self, exc: Exception) -> None:
-        self._except_action = self._draw_except_actions(reversed(self._entered))
+    def before_raise(self, exc: Exception, ids: Iterable[int]) -> None:
+        self._except_action = self._draw_except_actions(ids)
         self._raised_expected = self._compose_raised_expected(exc, self._except_action)
         self._handled_expected = self._determine_handled_expected(self._except_action)
         self._raised_on_exit_expected = self._determine_raised_on_exit_expected(
@@ -106,7 +81,7 @@ class MockContext:
         st_actions = st.sampled_from(self.EXCEPT_ACTIONS)
 
         # e.g., ['reraise', 'reraise', 'raise', 'handle']
-        actions: Iterator[MockContext.ExceptActionName] = self._draw(
+        actions: Iterator[ExceptionHandler.ExceptActionName] = self._draw(
             st_iter_until(st_actions, last='handle', max_size=len(ids))
         )
 
@@ -172,3 +147,50 @@ class MockContext:
             if action == 'raise':
                 return exc1
         return None
+
+
+class MockContext:
+    def __init__(self, data: st.DataObject) -> None:
+        self._draw = data.draw
+        self._count = count(1).__next__
+        self._created = list[int]()
+        self._entered = list[int]()
+        self._exiting = list[int]()
+
+        self._exception_handler = ExceptionHandler(data)
+
+    def __call__(self) -> GenCtxMngr:
+        id = self._count()
+        self._created.append(id)
+
+        @contextmanager
+        def _ctx() -> Generator:
+            self._entered.append(id)
+            try:
+                yield id
+            except MockException as e:
+                self._exception_handler._handle_exception(id, e)
+            finally:
+                self._exiting.append(id)
+
+        return _ctx()
+
+    @contextmanager
+    def context(self) -> Iterator[None]:
+        with self._exception_handler.context():
+            yield
+
+    def assert_created(self, n: int) -> None:
+        assert len(self._created) == n
+
+    def assert_entered(self) -> None:
+        assert self._entered == self._created
+
+    def assert_exited(
+        self, handled: Union[bool, None], raised: Union[Exception, None]
+    ) -> None:
+        assert self._exiting == list(reversed(self._entered))
+        self._exception_handler.assert_exited(handled, raised)
+
+    def before_raise(self, exc: Exception) -> None:
+        self._exception_handler.before_raise(exc, reversed(self._entered))
