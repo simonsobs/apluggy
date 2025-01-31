@@ -13,7 +13,7 @@ def test_one(data: st.DataObject) -> None:
     mock_context.assert_created()
     with ctx:
         mock_context.assert_entered()
-    mock_context.assert_exited(handled=False, raised=None)
+    mock_context.assert_exited(raised=None)
 
 
 @settings(max_examples=500)
@@ -30,9 +30,6 @@ def test_raise(data: st.DataObject) -> None:
             mock_context.before_raise(exc)
             raise exc
     except MockException as e:
-        if e is exc:
-            mock_context.assert_exited(handled=False, raised=None)
-        else:
-            mock_context.assert_exited(handled=None, raised=e)
+        mock_context.assert_exited(raised=e)
     else:
-        mock_context.assert_exited(handled=True, raised=None)
+        mock_context.assert_exited(raised=None)

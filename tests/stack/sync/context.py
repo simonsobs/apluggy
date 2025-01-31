@@ -31,7 +31,6 @@ class ExceptionHandler:
         self._exc_actual: list[tuple[int, Exception]] = []
         self._exc_expected: Sequence[tuple[int, Exception]] = ()
         self._action_map: Union[ExceptionHandler.ActionMap | None] = None
-        self._exit_expected: Union[bool, None] = False
         self._exc_on_exit_expected: Union[Exception, None] = None
 
     @contextmanager
@@ -50,10 +49,7 @@ class ExceptionHandler:
             raise exc1
         assert action == 'handle'
 
-    def assert_exited(
-        self, handled: Union[bool, None], raised: Union[Exception, None]
-    ) -> None:
-        assert handled is self._exit_expected
+    def assert_exited(self, raised: Union[BaseException, None]) -> None:
         assert raised is self._exc_on_exit_expected
         self.assert_raised()
 
@@ -66,8 +62,7 @@ class ExceptionHandler:
     def before_raise(self, exc: Exception, ids: Iterable[int]) -> None:
         self._action_map = self._draw_actions(ids)
         self._exc_expected = self._expect_exc(exc, self._action_map)
-        self._exit_expected = self._expect_exit(self._action_map)
-        self._exc_on_exit_expected = self._expect_exc_on_exit(self._action_map)
+        self._exc_on_exit_expected = self._expect_exc_on_exit(exc, self._action_map)
 
     def _draw_actions(self, ids: Iterable[int]) -> ActionMap:
         # e.g., [4, 3, 2, 1]
@@ -121,23 +116,16 @@ class ExceptionHandler:
         # )
         return tuple(ret)
 
-    def _expect_exit(self, action_map: ActionMap) -> Union[bool, None]:
-        # This method relies on the order of the items in `action_map`.
-        for action, _ in reversed(list(action_map.values())):
-            if action == 'handle':
-                return True
-            if action == 'raise':
-                return None
-        return False
-
-    def _expect_exc_on_exit(self, action_map: ActionMap) -> Union[Exception, None]:
+    def _expect_exc_on_exit(
+        self, exc: Exception, action_map: ActionMap
+    ) -> Union[Exception, None]:
         # This method relies on the order of the items in `action_map`.
         for action, exc1 in reversed(list(action_map.values())):
             if action == 'handle':
                 return None
             if action == 'raise':
                 return exc1
-        return None
+        return exc
 
 
 class MockContext:
@@ -178,11 +166,9 @@ class MockContext:
     def assert_entered(self) -> None:
         assert self._entered == self._created
 
-    def assert_exited(
-        self, handled: Union[bool, None], raised: Union[Exception, None]
-    ) -> None:
+    def assert_exited(self, raised: Union[BaseException, None]) -> None:
         assert self._exiting == list(reversed(self._entered))
-        self._exception_handler.assert_exited(handled, raised)
+        self._exception_handler.assert_exited(raised)
 
     def before_raise(self, exc: Exception) -> None:
         self._exception_handler.before_raise(exc, reversed(self._entered))
