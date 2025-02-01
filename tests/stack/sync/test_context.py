@@ -27,8 +27,9 @@ def test_raise(data: st.DataObject) -> None:
     try:
         with ctx:
             mock_context.assert_entered()
-            mock_context.before_raise(exc)
-            raise exc
+            with mock_context.context():
+                mock_context.before_raise(exc)
+                raise exc
     except MockException as e:
         mock_context.assert_exited(raised=e)
     else:
