@@ -1,8 +1,8 @@
 import sys
-from collections.abc import Generator, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from itertools import count
-from typing import Literal, Union
+from typing import Literal, NewType, Union
 
 from hypothesis import strategies as st
 
@@ -17,10 +17,29 @@ else:
 
 from .exc import MockException
 
+_CtxId = NewType('_CtxId', int)
+
+
+def _ContextIdGenerator() -> Callable[[], _CtxId]:
+    '''Return a function that returns a new `_CtxId` each time it is called.
+
+    >>> gen = _ContextIdGenerator()
+    >>> id1 = gen()
+    >>> id2 = gen()
+    >>> id1 is id2
+    False
+    '''
+    _count = count(1).__next__
+
+    def _gen() -> _CtxId:
+        return _CtxId(_count())
+
+    return _gen
+
 
 class ExceptionHandler:
     _ActionName = Literal['handle', 'reraise', 'raise']
-    _ActionMap: TypeAlias = Mapping[int, tuple[_ActionName, Union[None, Exception]]]
+    _ActionMap: TypeAlias = Mapping[_CtxId, tuple[_ActionName, Union[None, Exception]]]
     _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
     def __init__(self, data: st.DataObject) -> None:
@@ -28,8 +47,8 @@ class ExceptionHandler:
         self._clear()
 
     def _clear(self) -> None:
-        self._exc_actual: list[tuple[int, Exception]] = []
-        self._exc_expected: Sequence[tuple[int, Exception]] = ()
+        self._exc_actual: list[tuple[_CtxId, Exception]] = []
+        self._exc_expected: Sequence[tuple[_CtxId, Exception]] = ()
         self._action_map: Union[ExceptionHandler._ActionMap, None] = None
         self._exc_on_exit_expected: Union[Exception, None] = None
 
@@ -39,7 +58,7 @@ class ExceptionHandler:
         # self._clear()
         yield
 
-    def handle(self, id: int, exc: Exception) -> None:
+    def handle(self, id: _CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
         assert self._action_map is not None
         action, exc1 = self._action_map[id]
@@ -60,13 +79,13 @@ class ExceptionHandler:
         # https://docs.python.org/3/reference/datamodel.html#object.__eq__
         assert self._exc_actual == list(self._exc_expected)
 
-    def before_raise(self, exc: Exception, ids: Iterable[int]) -> None:
+    def before_raise(self, exc: Exception, ids: Iterable[_CtxId]) -> None:
         self._clear()
         self._action_map = self._draw_actions(ids)
         self._exc_expected = self._expect_exc(exc, self._action_map)
         self._exc_on_exit_expected = self._expect_exc_on_exit(exc, self._action_map)
 
-    def _draw_actions(self, ids: Iterable[int]) -> _ActionMap:
+    def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
         # e.g., [4, 3, 2, 1]
         ids = list(ids)
 
@@ -90,7 +109,7 @@ class ExceptionHandler:
 
     def _expect_exc(
         self, exc: Exception, action_map: _ActionMap
-    ) -> tuple[tuple[int, Exception], ...]:
+    ) -> tuple[tuple[_CtxId, Exception], ...]:
         # This method relies on the order of the items in `action_map`.
         # e.g.:
         # exc = MockException('0')
@@ -101,7 +120,7 @@ class ExceptionHandler:
         #     1: ('handle', None),
         # }
 
-        ret = list[tuple[int, Exception]]()
+        ret = list[tuple[_CtxId, Exception]]()
         for id, (action, exc1) in action_map.items():
             ret.append((id, exc))
             if action == 'handle':
@@ -133,19 +152,20 @@ class ExceptionHandler:
 class MockContext:
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
-        self._count = count(1).__next__
+        self._generate_ctx_id = _ContextIdGenerator()
         self._n_ctxs = 0
-        self._created: list[int] = []
-        self._entered: list[int] = []
-        self._exiting: list[int] = []
+        self._created: list[_CtxId] = []
+        self._entered: list[_CtxId] = []
+        self._exiting: list[_CtxId] = []
         self._exception_handler = ExceptionHandler(data)
         self._clear()
 
     def _clear(self) -> None:
-        self._to_yield: Mapping[int, str] = {}
+        self._to_yield: Mapping[_CtxId, str] = {}
 
     def __call__(self) -> GenCtxMngr:
-        id = self._n_ctxs = self._count()
+        id = self._generate_ctx_id()
+        self._n_ctxs += 1
         self._created.append(id)
 
         @contextmanager
