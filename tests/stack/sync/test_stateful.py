@@ -63,9 +63,9 @@ class StatefulTest:
         raise exc
 
     def __enter__(self) -> 'StatefulTest':
+        self._mock_context.before_enter()
         y = self._obj.__enter__()
-        assert y == list(range(1, self._n_ctxs + 1))
-        self._mock_context.assert_entered()
+        self._mock_context.assert_entered(yields=y)
         return self
 
     def __exit__(

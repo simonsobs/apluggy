@@ -1,3 +1,4 @@
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -14,8 +15,9 @@ def test_one(data: st.DataObject) -> None:
 
     ctx = mock_context()
     mock_context.assert_created()
-    with ctx:
-        mock_context.assert_entered()
+    mock_context.before_enter()
+    with ctx as y:
+        mock_context.assert_entered(yields=y)
     mock_context.assert_exited(exc=None)
 
 
@@ -25,9 +27,10 @@ def test_raise(data: st.DataObject) -> None:
 
     ctx = mock_context()
     mock_context.assert_created()
+    mock_context.before_enter()
     try:
-        with ctx:
-            mock_context.assert_entered()
+        with ctx as y:
+            mock_context.assert_entered(yields=y)
             with mock_context.context():
                 exc = MockException('0')
                 mock_context.before_raise(exc)
@@ -51,10 +54,11 @@ def test_property(data: st.DataObject) -> None:
 
     mock_context.assert_created()
 
+    mock_context.before_enter()
     try:
         # `iter()` is used to ensure `stack` works with an iterable.
         with stack(iter(ctxs)) as y:
-            mock_context.assert_entered()
+            mock_context.assert_entered(yields=y)
             if data.draw(st.booleans()):
                 with mock_context.context():
                     exc = MockException('0')
@@ -76,3 +80,18 @@ def _draw_stack(data, n_ctxs: int, gen_enabled: bool) -> Stack:
         stacks.append(exit_stack)
     stack = data.draw(st.sampled_from(stacks))
     return stack
+
+
+@pytest.mark.skip
+def test_scratch() -> None:
+    from collections.abc import Iterator
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _ctx() -> Iterator[None]:
+        raise MockException('0')
+        if False:
+            yield
+
+    with _ctx():
+        pass

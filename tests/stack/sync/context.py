@@ -35,7 +35,8 @@ class ExceptionHandler:
 
     @contextmanager
     def context(self) -> Iterator[None]:
-        self._clear()
+        # TODO: Delete this method if it's not used.
+        # self._clear()
         yield
 
     def handle(self, id: int, exc: Exception) -> None:
@@ -60,6 +61,7 @@ class ExceptionHandler:
         assert self._exc_actual == list(self._exc_expected)
 
     def before_raise(self, exc: Exception, ids: Iterable[int]) -> None:
+        self._clear()
         self._action_map = self._draw_actions(ids)
         self._exc_expected = self._expect_exc(exc, self._action_map)
         self._exc_on_exit_expected = self._expect_exc_on_exit(exc, self._action_map)
@@ -136,8 +138,11 @@ class MockContext:
         self._created: list[int] = []
         self._entered: list[int] = []
         self._exiting: list[int] = []
-
         self._exception_handler = ExceptionHandler(data)
+        self._clear()
+
+    def _clear(self) -> None:
+        self._to_yield: Mapping[int, str] = {}
 
     def __call__(self) -> GenCtxMngr:
         id = self._n_ctxs = self._count()
@@ -147,7 +152,7 @@ class MockContext:
         def _ctx() -> Generator:
             self._entered.append(id)
             try:
-                yield id
+                yield self._to_yield[id]
             except MockException as e:
                 self._exception_handler.handle(id, e)
             finally:
@@ -157,14 +162,20 @@ class MockContext:
 
     @contextmanager
     def context(self) -> Iterator[None]:
+        # TODO: Delete this method if it's not used.
+        # self._clear()
         with self._exception_handler.context():
             yield
 
     def assert_created(self) -> None:
         assert len(self._created) == self._n_ctxs
 
-    def assert_entered(self) -> None:
+    def before_enter(self) -> None:
+        self._to_yield = {id: f'{id}' for id in self._created}
+
+    def assert_entered(self, yields: Iterable[str]) -> None:
         assert self._entered == self._created
+        assert list(yields) == [self._to_yield[id] for id in self._entered]
 
     def assert_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting == list(reversed(self._entered))
