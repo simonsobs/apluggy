@@ -52,13 +52,12 @@ def test_property(data: st.DataObject) -> None:
     mock_context = MockContext(data=data)
     ctxs = [mock_context() for _ in range(n_ctxs)]
 
-    mock_context.assert_created(iter(ctxs))
+    mock_context.assert_created(iter(ctxs))  # `iter()` to test with an iterable.
 
     mock_context.before_enter()
     try:
-        # `iter()` is used to ensure `stack` works with an iterable.
         with stack(iter(ctxs)) as y:
-            mock_context.assert_entered(yields=y)
+            mock_context.assert_entered(yields=iter(y))
             if data.draw(st.booleans()):
                 with mock_context.context():
                     exc = MockException('0')
