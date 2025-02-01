@@ -39,7 +39,13 @@ def _ContextIdGenerator() -> Callable[[], _CtxId]:
 
 class ExceptionHandler:
     _ActionName = Literal['handle', 'reraise', 'raise']
-    _ActionMap: TypeAlias = Mapping[_CtxId, tuple[_ActionName, Union[None, Exception]]]
+    _ActionMap: TypeAlias = Mapping[
+        _CtxId,
+        Union[
+            tuple[Literal['handle', 'reraise'], None],
+            tuple[Literal['raise'], Exception],
+        ],
+    ]
     _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
     def __init__(self, data: st.DataObject) -> None:
@@ -61,13 +67,12 @@ class ExceptionHandler:
     def handle(self, id: _CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
         assert self._action_map is not None
-        action, exc1 = self._action_map[id]
-        if action == 'reraise':
+        action_item = self._action_map[id]
+        if action_item[0] == 'reraise':
             raise
-        if action == 'raise':
-            assert exc1 is not None
-            raise exc1
-        assert action == 'handle'
+        if action_item[0] == 'raise':
+            raise action_item[1]
+        assert action_item[0] == 'handle'
 
     def assert_exited(self, exc: Union[BaseException, None]) -> None:
         assert exc is self._exc_on_exit_expected
@@ -103,7 +108,7 @@ class ExceptionHandler:
         #     1: ('handle', None),
         # }
         return {
-            id: (a, MockException(f'{id}') if a == 'raise' else None)
+            id: (a, MockException(f'{id}')) if a == 'raise' else (a, None)
             for id, a in zip(ids, actions)
         }
 
