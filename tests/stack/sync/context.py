@@ -19,9 +19,9 @@ from .exc import MockException
 
 
 class ExceptionHandler:
-    ActionName = Literal['handle', 'reraise', 'raise']
-    ActionMap: TypeAlias = Mapping[int, tuple[ActionName, Union[None, Exception]]]
-    ACTIONS: tuple[ActionName, ...] = ('handle', 'reraise', 'raise')
+    _ActionName = Literal['handle', 'reraise', 'raise']
+    _ActionMap: TypeAlias = Mapping[int, tuple[_ActionName, Union[None, Exception]]]
+    _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
@@ -30,7 +30,7 @@ class ExceptionHandler:
     def _clear(self) -> None:
         self._exc_actual: list[tuple[int, Exception]] = []
         self._exc_expected: Sequence[tuple[int, Exception]] = ()
-        self._action_map: Union[ExceptionHandler.ActionMap, None] = None
+        self._action_map: Union[ExceptionHandler._ActionMap, None] = None
         self._exc_on_exit_expected: Union[Exception, None] = None
 
     @contextmanager
@@ -66,14 +66,14 @@ class ExceptionHandler:
         self._exc_expected = self._expect_exc(exc, self._action_map)
         self._exc_on_exit_expected = self._expect_exc_on_exit(exc, self._action_map)
 
-    def _draw_actions(self, ids: Iterable[int]) -> ActionMap:
+    def _draw_actions(self, ids: Iterable[int]) -> _ActionMap:
         # e.g., [4, 3, 2, 1]
         ids = list(ids)
 
-        st_actions = st.sampled_from(self.ACTIONS)
+        st_actions = st.sampled_from(self._ACTIONS)
 
         # e.g., ['reraise', 'reraise', 'raise', 'handle']
-        actions: Iterator[ExceptionHandler.ActionName] = self._draw(
+        actions: Iterator[ExceptionHandler._ActionName] = self._draw(
             st_iter_until(st_actions, last='handle', max_size=len(ids))
         )
 
@@ -89,7 +89,7 @@ class ExceptionHandler:
         }
 
     def _expect_exc(
-        self, exc: Exception, action_map: ActionMap
+        self, exc: Exception, action_map: _ActionMap
     ) -> tuple[tuple[int, Exception], ...]:
         # This method relies on the order of the items in `action_map`.
         # e.g.:
@@ -119,7 +119,7 @@ class ExceptionHandler:
         return tuple(ret)
 
     def _expect_exc_on_exit(
-        self, exc: Exception, action_map: ActionMap
+        self, exc: Exception, action_map: _ActionMap
     ) -> Union[Exception, None]:
         # This method relies on the order of the items in `action_map`.
         for action, exc1 in reversed(list(action_map.values())):
