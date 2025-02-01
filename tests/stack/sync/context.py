@@ -30,7 +30,7 @@ class ExceptionHandler:
     def _clear(self) -> None:
         self._exc_actual: list[tuple[int, Exception]] = []
         self._exc_expected: Sequence[tuple[int, Exception]] = ()
-        self._action_map: Union[ExceptionHandler.ActionMap | None] = None
+        self._action_map: Union[ExceptionHandler.ActionMap, None] = None
         self._exc_on_exit_expected: Union[Exception, None] = None
 
     @contextmanager

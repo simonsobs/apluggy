@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from types import TracebackType
@@ -9,15 +8,9 @@ from hypothesis import strategies as st
 
 from apluggy import stack_gen_ctxs
 
-from .refs import dunder_enter, exit_stack, nested_with
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
 from .context import MockContext
 from .exc import MockException
+from .refs import dunder_enter, exit_stack, nested_with
 
 
 class StatefulTest:
