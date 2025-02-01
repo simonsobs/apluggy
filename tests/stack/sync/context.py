@@ -155,6 +155,14 @@ class ExceptionHandler:
 
 
 class MockContext:
+    _ActionName = Literal['yield', 'raise']
+    _ActionItem: TypeAlias = Union[
+        tuple[Literal['yield'], str],
+        tuple[Literal['raise'], Exception],
+    ]
+    _ActionMap: TypeAlias = Mapping[_CtxId, _ActionItem]
+    _ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise')
+
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
         self._generate_ctx_id = _ContextIdGenerator()
@@ -166,17 +174,20 @@ class MockContext:
         self._clear()
 
     def _clear(self) -> None:
-        self._to_yield: Mapping[_CtxId, str] = {}
+        self._action_map: Union[MockContext._ActionMap, None] = None
 
-    def __call__(self) -> GenCtxMngr:
+    def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
         self._created.append(id)
 
         @contextmanager
-        def _ctx() -> Generator:
+        def _ctx() -> Iterator[str]:
             self._entered.append(id)
             try:
-                yield self._to_yield[id]
+                assert self._action_map is not None
+                action_item = self._action_map[id]
+                assert action_item[0] == 'yield'
+                yield action_item[1]
             except MockException as e:
                 self._exception_handler.handle(id, e)
             finally:
@@ -197,11 +208,13 @@ class MockContext:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created]
 
     def before_enter(self) -> None:
-        self._to_yield = {id: f'{id}' for id in self._created}
+        self._clear()
+        self._action_map = self._draw_actions(self._created)
 
     def assert_entered(self, yields: Iterable[str]) -> None:
         assert self._entered == self._created
-        assert list(yields) == [self._to_yield[id] for id in self._entered]
+        assert self._action_map is not None
+        assert list(yields) == [self._action_map[id][1] for id in self._entered]
 
     def assert_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting == list(reversed(self._entered))
@@ -209,3 +222,6 @@ class MockContext:
 
     def before_raise(self, exc: Exception) -> None:
         self._exception_handler.before_raise(exc, reversed(self._entered))
+
+    def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
+        return {id: ('yield', f'{id}') for id in ids}
