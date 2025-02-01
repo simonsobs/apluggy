@@ -39,13 +39,11 @@ def _ContextIdGenerator() -> Callable[[], _CtxId]:
 
 class ExceptionHandler:
     _ActionName = Literal['handle', 'reraise', 'raise']
-    _ActionMap: TypeAlias = Mapping[
-        _CtxId,
-        Union[
-            tuple[Literal['handle', 'reraise'], None],
-            tuple[Literal['raise'], Exception],
-        ],
+    _ActionItem: TypeAlias = Union[
+        tuple[Literal['handle', 'reraise'], None],
+        tuple[Literal['raise'], Exception],
     ]
+    _ActionMap: TypeAlias = Mapping[_CtxId, _ActionItem]
     _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
     def __init__(self, data: st.DataObject) -> None:
@@ -107,10 +105,12 @@ class ExceptionHandler:
         #     2: ('raise', MockException('2')),
         #     1: ('handle', None),
         # }
-        return {
-            id: (a, MockException(f'{id}')) if a == 'raise' else (a, None)
-            for id, a in zip(ids, actions)
-        }
+        return {id: self._create_action_item(id, a) for id, a in zip(ids, actions)}
+
+    def _create_action_item(self, id: _CtxId, action: _ActionName) -> _ActionItem:
+        if action == 'raise':
+            return (action, MockException(f'{id}'))
+        return (action, None)
 
     def _expect_exc(
         self, exc: Exception, action_map: _ActionMap
