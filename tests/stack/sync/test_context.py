@@ -14,7 +14,7 @@ def test_one(data: st.DataObject) -> None:
     mock_context = MockContext(data=data)
 
     ctx = mock_context()
-    mock_context.assert_created()
+    mock_context.assert_created([ctx])
     mock_context.before_enter()
     with ctx as y:
         mock_context.assert_entered(yields=y)
@@ -26,7 +26,7 @@ def test_raise(data: st.DataObject) -> None:
     mock_context = MockContext(data=data)
 
     ctx = mock_context()
-    mock_context.assert_created()
+    mock_context.assert_created([ctx])
     mock_context.before_enter()
     try:
         with ctx as y:
@@ -52,7 +52,7 @@ def test_property(data: st.DataObject) -> None:
     mock_context = MockContext(data=data)
     ctxs = [mock_context() for _ in range(n_ctxs)]
 
-    mock_context.assert_created()
+    mock_context.assert_created(iter(ctxs))
 
     mock_context.before_enter()
     try:

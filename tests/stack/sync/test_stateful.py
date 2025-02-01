@@ -33,7 +33,7 @@ class StatefulTest:
 
         self._mock_context = MockContext(data=data)
         ctxs = [self._mock_context() for _ in range(self._n_ctxs)]
-        self._mock_context.assert_created()
+        self._mock_context.assert_created(ctxs)
 
         self._obj = stack(iter(ctxs))
 

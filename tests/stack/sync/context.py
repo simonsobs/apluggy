@@ -153,7 +153,7 @@ class MockContext:
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
         self._generate_ctx_id = _ContextIdGenerator()
-        self._n_ctxs = 0
+        self._ctxs_map: dict[_CtxId, GenCtxMngr] = {}
         self._created: list[_CtxId] = []
         self._entered: list[_CtxId] = []
         self._exiting: list[_CtxId] = []
@@ -165,7 +165,6 @@ class MockContext:
 
     def __call__(self) -> GenCtxMngr:
         id = self._generate_ctx_id()
-        self._n_ctxs += 1
         self._created.append(id)
 
         @contextmanager
@@ -178,7 +177,9 @@ class MockContext:
             finally:
                 self._exiting.append(id)
 
-        return _ctx()
+        ctx = _ctx()
+        self._ctxs_map[id] = ctx
+        return ctx
 
     @contextmanager
     def context(self) -> Iterator[None]:
@@ -187,8 +188,8 @@ class MockContext:
         with self._exception_handler.context():
             yield
 
-    def assert_created(self) -> None:
-        assert len(self._created) == self._n_ctxs
+    def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
+        assert list(ctxs) == [self._ctxs_map[id] for id in self._created]
 
     def before_enter(self) -> None:
         self._to_yield = {id: f'{id}' for id in self._created}
