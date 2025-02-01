@@ -78,7 +78,7 @@ class StatefulTest:
         # ic(exc_value)
         handled, raised = self._exit_stack(exc_type, exc_value, traceback)
         exc = raised or not handled and exc_value or None
-        self._mock_context.assert_exited(raised=exc)
+        self._mock_context.assert_exited(exc=exc)
         return True
 
     def _exit_stack(

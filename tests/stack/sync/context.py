@@ -49,8 +49,8 @@ class ExceptionHandler:
             raise exc1
         assert action == 'handle'
 
-    def assert_exited(self, raised: Union[BaseException, None]) -> None:
-        assert raised is self._exc_on_exit_expected
+    def assert_exited(self, exc: Union[BaseException, None]) -> None:
+        assert exc is self._exc_on_exit_expected
         self.assert_raised()
 
     def assert_raised(self) -> None:
@@ -133,9 +133,9 @@ class MockContext:
         self._draw = data.draw
         self._count = count(1).__next__
         self._n_ctxs = 0
-        self._created = list[int]()
-        self._entered = list[int]()
-        self._exiting = list[int]()
+        self._created: list[int] = []
+        self._entered: list[int] = []
+        self._exiting: list[int] = []
 
         self._exception_handler = ExceptionHandler(data)
 
@@ -166,9 +166,9 @@ class MockContext:
     def assert_entered(self) -> None:
         assert self._entered == self._created
 
-    def assert_exited(self, raised: Union[BaseException, None]) -> None:
+    def assert_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting == list(reversed(self._entered))
-        self._exception_handler.assert_exited(raised)
+        self._exception_handler.assert_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
         self._exception_handler.before_raise(exc, reversed(self._entered))
