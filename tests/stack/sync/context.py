@@ -49,13 +49,33 @@ class ExceptionHandler:
 
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
-        self._clear()
-
-    def _clear(self) -> None:
         self._exc_actual: list[tuple[_CtxId, Exception]] = []
         self._exc_expected: Sequence[tuple[_CtxId, Exception]] = ()
         self._action_map: Union[ExceptionHandler._ActionMap, None] = None
         self._exc_on_exit_expected: Union[Exception, None] = None
+
+    @classmethod
+    def before_enter(
+        cls, data: st.DataObject, exc: Exception, ids: Iterable[_CtxId]
+    ) -> 'ExceptionHandler':
+        self = cls(data)
+        self._action_map = self._draw_actions(ids)
+        self._exc_expected = self._expect_exc(exc, self._action_map)
+        e = self._expect_exc_on_exit(exc, self._action_map)
+        self._exc_on_exit_expected = e or RuntimeError()
+        note(f'{self._action_map=}')
+        return self
+
+    @classmethod
+    def before_raise(
+        cls, data: st.DataObject, exc: Exception, ids: Iterable[_CtxId]
+    ) -> 'ExceptionHandler':
+        self = cls(data)
+        self._action_map = self._draw_actions(ids)
+        self._exc_expected = self._expect_exc(exc, self._action_map)
+        self._exc_on_exit_expected = self._expect_exc_on_exit(exc, self._action_map)
+        note(f'{self._action_map=}')
+        return self
 
     def handle(self, id: _CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
@@ -81,21 +101,6 @@ class ExceptionHandler:
         # https://docs.python.org/3/reference/datamodel.html#object.__eq__
         note(f'{self._exc_actual=!r} {self._exc_expected=!r}')
         assert self._exc_actual == list(self._exc_expected)
-
-    def before_enter(self, exc: Exception, ids: Iterable[_CtxId]) -> None:
-        self._clear()
-        self._action_map = self._draw_actions(ids)
-        self._exc_expected = self._expect_exc(exc, self._action_map)
-        e = self._expect_exc_on_exit(exc, self._action_map)
-        self._exc_on_exit_expected = e or RuntimeError()
-        note(f'{self._action_map=}')
-
-    def before_raise(self, exc: Exception, ids: Iterable[_CtxId]) -> None:
-        self._clear()
-        self._action_map = self._draw_actions(ids)
-        self._exc_expected = self._expect_exc(exc, self._action_map)
-        self._exc_on_exit_expected = self._expect_exc_on_exit(exc, self._action_map)
-        note(f'{self._action_map=}')
 
     def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
         # e.g., [4, 3, 2, 1]
@@ -229,8 +234,9 @@ class MockContext:
                 exc = last_action_item[1]
                 ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
                 note(f'before_enter: {exc!r}, {ids}')
-                self._exception_handler = ExceptionHandler(self._data)
-                self._exception_handler.before_enter(exc, reversed(ids))
+                self._exception_handler = ExceptionHandler.before_enter(
+                    self._data, exc, reversed(ids)
+                )
 
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
@@ -245,8 +251,9 @@ class MockContext:
             self._exception_handler.assert_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
-        self._exception_handler = ExceptionHandler(self._data)
-        self._exception_handler.before_raise(exc, reversed(self._entered_ctx_ids))
+        self._exception_handler = ExceptionHandler.before_raise(
+            self._data, exc, reversed(self._entered_ctx_ids)
+        )
 
     def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
         # return {id: ('yield', f'{id}') for id in ids}
