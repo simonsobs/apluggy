@@ -53,7 +53,7 @@ def test_property(data: st.DataObject) -> None:
     n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
     gen_enabled = data.draw(st.booleans(), label='gen_enabled')
 
-    stack = _draw_stack(data, n_ctxs, gen_enabled)
+    stack = data.draw(_st_stack(n_ctxs, gen_enabled))
 
     mock_context = MockContext(data=data)
     ctxs = [mock_context() for _ in range(n_ctxs)]
@@ -75,7 +75,7 @@ def test_property(data: st.DataObject) -> None:
     mock_context.assert_exited(exc=exc)
 
 
-def _draw_stack(data, n_ctxs: int, gen_enabled: bool) -> Stack:
+def _st_stack(n_ctxs: int, gen_enabled: bool) -> st.SearchStrategy[Stack]:
     # `stack_gen_ctxs` is the object to be tested.
     # `dunder_enter`, `nested_with`, and `exit_stack` are reference implementations.
     stacks = [stack_gen_ctxs]
@@ -83,8 +83,7 @@ def _draw_stack(data, n_ctxs: int, gen_enabled: bool) -> Stack:
         stacks.extend([dunder_enter, nested_with])
     if not gen_enabled:
         stacks.append(exit_stack)
-    stack = data.draw(st.sampled_from(stacks))
-    return stack
+    return st.sampled_from(stacks)
 
 
 @pytest.mark.skip
