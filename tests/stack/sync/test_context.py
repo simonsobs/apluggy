@@ -21,10 +21,10 @@ def test_one(data: st.DataObject) -> None:
     exc: Union[Exception, None] = None
     try:
         with ctx as y:
-            mock_context.assert_entered(yields=y)
+            mock_context.on_entered(yields=y)
     except Exception as e:
         exc = e
-    mock_context.assert_exited(exc=exc)
+    mock_context.on_exited(exc=exc)
 
 
 @given(data=st.data())
@@ -37,14 +37,14 @@ def test_raise(data: st.DataObject) -> None:
     exc: Union[Exception, None] = None
     try:
         with ctx as y:
-            mock_context.assert_entered(yields=y)
+            mock_context.on_entered(yields=y)
             with mock_context.context():
                 exc0 = MockException('0')
                 mock_context.before_raise(exc0)
                 raise exc0
     except Exception as e:
         exc = e
-    mock_context.assert_exited(exc=exc)
+    mock_context.on_exited(exc=exc)
 
 
 @settings(max_examples=500)
@@ -64,7 +64,7 @@ def test_property(data: st.DataObject) -> None:
     exc: Union[Exception, None] = None
     try:
         with stack(iter(ctxs)) as y:
-            mock_context.assert_entered(yields=iter(y))
+            mock_context.on_entered(yields=iter(y))
             if data.draw(st.booleans()):
                 with mock_context.context():
                     exc0 = MockException('0')
@@ -72,7 +72,7 @@ def test_property(data: st.DataObject) -> None:
                     raise exc0
     except Exception as e:
         exc = e
-    mock_context.assert_exited(exc=exc)
+    mock_context.on_exited(exc=exc)
 
 
 def _st_stack(n_ctxs: int, gen_enabled: bool) -> st.SearchStrategy[Stack]:

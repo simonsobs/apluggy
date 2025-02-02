@@ -182,9 +182,9 @@ class MockContext:
         self._draw = data.draw
         self._generate_ctx_id = _ContextIdGenerator()
         self._ctxs_map: dict[_CtxId, GenCtxMngr] = {}
-        self._created: list[_CtxId] = []
-        self._entered: list[_CtxId] = []
-        self._exiting: list[_CtxId] = []
+        self._created_ctx_ids: list[_CtxId] = []
+        self._entered_ctx_ids: list[_CtxId] = []
+        self._exiting_ctx_ids: list[_CtxId] = []
         self._exception_handler = ExceptionHandler(data)
         self._clear()
 
@@ -193,11 +193,11 @@ class MockContext:
 
     def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
-        self._created.append(id)
+        self._created_ctx_ids.append(id)
 
         @contextmanager
         def _ctx() -> Iterator[str]:
-            self._entered.append(id)
+            self._entered_ctx_ids.append(id)
             assert self._action_map is not None
             action_item = self._action_map[id]
             try:
@@ -209,7 +209,7 @@ class MockContext:
                 except MockException as e:
                     self._exception_handler.handle(id, e)
             finally:
-                self._exiting.append(id)
+                self._exiting_ctx_ids.append(id)
 
         ctx = _ctx()
         self._ctxs_map[id] = ctx
@@ -223,30 +223,30 @@ class MockContext:
             yield
 
     def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
-        assert list(ctxs) == [self._ctxs_map[id] for id in self._created]
+        assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
 
     def before_enter(self) -> None:
         self._clear()
-        self._action_map = self._draw_actions(self._created)
+        self._action_map = self._draw_actions(self._created_ctx_ids)
         if self._action_map:
             id, last_action_item = list(self._action_map.items())[-1]
             if last_action_item[0] == 'raise':
                 exc = last_action_item[1]
-                ids = self._created[: self._created.index(id)]
+                ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
                 note(f'before_enter: {exc!r}, {ids}')
                 self._exception_handler.before_enter(exc, reversed(ids))
 
-    def assert_entered(self, yields: Iterable[str]) -> None:
-        assert self._entered == self._created
+    def on_entered(self, yields: Iterable[str]) -> None:
+        assert self._entered_ctx_ids == self._created_ctx_ids
         assert self._action_map is not None
-        assert list(yields) == [self._action_map[id][1] for id in self._entered]
+        assert list(yields) == [self._action_map[id][1] for id in self._entered_ctx_ids]
 
-    def assert_exited(self, exc: Union[BaseException, None]) -> None:
-        assert self._exiting == list(reversed(self._entered))
+    def on_exited(self, exc: Union[BaseException, None]) -> None:
+        assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
         self._exception_handler.assert_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
-        self._exception_handler.before_raise(exc, reversed(self._entered))
+        self._exception_handler.before_raise(exc, reversed(self._entered_ctx_ids))
 
     def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
         # return {id: ('yield', f'{id}') for id in ids}
