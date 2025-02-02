@@ -7,7 +7,7 @@ from typing import Literal, NewType, Union
 from hypothesis import strategies as st
 
 from apluggy.stack import GenCtxMngr
-from tests.utils import st_iter_until
+from tests.utils import st_list_until
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -95,8 +95,8 @@ class ExceptionHandler:
         st_actions = st.sampled_from(self._ACTIONS)
 
         # e.g., ['reraise', 'reraise', 'raise', 'handle']
-        actions: Iterator[ExceptionHandler._ActionName] = self._draw(
-            st_iter_until(st_actions, last='handle', max_size=len(ids))
+        actions: list[ExceptionHandler._ActionName] = self._draw(
+            st_list_until(st_actions, last='handle', max_size=len(ids))
         )
 
         # e.g., {
