@@ -57,12 +57,6 @@ class ExceptionHandler:
         self._action_map: Union[ExceptionHandler._ActionMap, None] = None
         self._exc_on_exit_expected: Union[Exception, None] = None
 
-    @contextmanager
-    def context(self) -> Iterator[None]:
-        # TODO: Delete this method if it's not used.
-        # self._clear()
-        yield
-
     def handle(self, id: _CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
         assert self._action_map is not None
@@ -219,8 +213,7 @@ class MockContext:
     def context(self) -> Iterator[None]:
         # TODO: Delete this method if it's not used.
         # self._clear()
-        with self._exception_handler.context():
-            yield
+        yield
 
     def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
