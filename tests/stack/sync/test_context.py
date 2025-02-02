@@ -1,3 +1,5 @@
+from typing import Union
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -16,13 +18,13 @@ def test_one(data: st.DataObject) -> None:
     ctx = mock_context()
     mock_context.assert_created([ctx])
     mock_context.before_enter()
+    exc: Union[Exception, None] = None
     try:
         with ctx as y:
             mock_context.assert_entered(yields=y)
-    except MockException as e:
-        mock_context.assert_exited(exc=e)
-    else:
-        mock_context.assert_exited(exc=None)
+    except Exception as e:
+        exc = e
+    mock_context.assert_exited(exc=exc)
 
 
 @given(data=st.data())
@@ -32,17 +34,17 @@ def test_raise(data: st.DataObject) -> None:
     ctx = mock_context()
     mock_context.assert_created([ctx])
     mock_context.before_enter()
+    exc: Union[Exception, None] = None
     try:
         with ctx as y:
             mock_context.assert_entered(yields=y)
             with mock_context.context():
-                exc = MockException('0')
-                mock_context.before_raise(exc)
-                raise exc
-    except MockException as e:
-        mock_context.assert_exited(exc=e)
-    else:
-        mock_context.assert_exited(exc=None)
+                exc0 = MockException('0')
+                mock_context.before_raise(exc0)
+                raise exc0
+    except Exception as e:
+        exc = e
+    mock_context.assert_exited(exc=exc)
 
 
 @settings(max_examples=500)
@@ -59,18 +61,18 @@ def test_property(data: st.DataObject) -> None:
     mock_context.assert_created(iter(ctxs))  # `iter()` to test with an iterable.
 
     mock_context.before_enter()
+    exc: Union[Exception, None] = None
     try:
         with stack(iter(ctxs)) as y:
             mock_context.assert_entered(yields=iter(y))
             if data.draw(st.booleans()):
                 with mock_context.context():
-                    exc = MockException('0')
-                    mock_context.before_raise(exc)
-                    raise exc
+                    exc0 = MockException('0')
+                    mock_context.before_raise(exc0)
+                    raise exc0
     except Exception as e:
-        mock_context.assert_exited(exc=e)
-    else:
-        mock_context.assert_exited(exc=None)
+        exc = e
+    mock_context.assert_exited(exc=exc)
 
 
 def _draw_stack(data, n_ctxs: int, gen_enabled: bool) -> Stack:
