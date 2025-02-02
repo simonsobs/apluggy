@@ -16,9 +16,13 @@ def test_one(data: st.DataObject) -> None:
     ctx = mock_context()
     mock_context.assert_created([ctx])
     mock_context.before_enter()
-    with ctx as y:
-        mock_context.assert_entered(yields=y)
-    mock_context.assert_exited(exc=None)
+    try:
+        with ctx as y:
+            mock_context.assert_entered(yields=y)
+    except MockException as e:
+        mock_context.assert_exited(exc=e)
+    else:
+        mock_context.assert_exited(exc=None)
 
 
 @given(data=st.data())
@@ -44,8 +48,8 @@ def test_raise(data: st.DataObject) -> None:
 @settings(max_examples=500)
 @given(data=st.data())
 def test_property(data: st.DataObject) -> None:
-    n_ctxs = data.draw(st.integers(min_value=0, max_value=6))
-    gen_enabled = data.draw(st.booleans())
+    n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
+    gen_enabled = data.draw(st.booleans(), label='gen_enabled')
 
     stack = _draw_stack(data, n_ctxs, gen_enabled)
 
@@ -63,7 +67,7 @@ def test_property(data: st.DataObject) -> None:
                     exc = MockException('0')
                     mock_context.before_raise(exc)
                     raise exc
-    except MockException as e:
+    except Exception as e:
         mock_context.assert_exited(exc=e)
     else:
         mock_context.assert_exited(exc=None)
