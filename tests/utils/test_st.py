@@ -7,7 +7,7 @@ from .st import st_list_until
 
 
 @given(data=st.data())
-def test_st_iter_until(data: st.DataObject) -> None:
+def test_st_list_until(data: st.DataObject) -> None:
     samples = data.draw(st.lists(st.text(), min_size=1))
     st_ = st.sampled_from(samples)
     last = data.draw(st_)
