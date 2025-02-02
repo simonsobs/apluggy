@@ -47,39 +47,29 @@ class ExceptionHandler:
     _ActionMap: TypeAlias = Mapping[_CtxId, _ActionItem]
     _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
-    def __init__(self, data: st.DataObject) -> None:
+    def __init__(
+        self,
+        data: st.DataObject,
+        exc: Exception,
+        ids: Iterable[_CtxId],
+        before_enter: bool = False,
+    ) -> None:
         self._draw = data.draw
         self._exc_actual: list[tuple[_CtxId, Exception]] = []
-        self._exc_expected: Sequence[tuple[_CtxId, Exception]] = ()
-        self._action_map: Union[ExceptionHandler._ActionMap, None] = None
-        self._exc_on_exit_expected: Union[Exception, None] = None
 
-    @classmethod
-    def before_enter(
-        cls, data: st.DataObject, exc: Exception, ids: Iterable[_CtxId]
-    ) -> 'ExceptionHandler':
-        self = cls(data)
         self._action_map = self._draw_actions(ids)
         self._exc_expected = self._expect_exc(exc, self._action_map)
+
         e = self._expect_exc_on_exit(exc, self._action_map)
-        self._exc_on_exit_expected = e or RuntimeError()
-        note(f'{self._action_map=}')
-        return self
+        if not before_enter:
+            self._exc_on_exit_expected = e
+        else:
+            self._exc_on_exit_expected = e or RuntimeError()
 
-    @classmethod
-    def before_raise(
-        cls, data: st.DataObject, exc: Exception, ids: Iterable[_CtxId]
-    ) -> 'ExceptionHandler':
-        self = cls(data)
-        self._action_map = self._draw_actions(ids)
-        self._exc_expected = self._expect_exc(exc, self._action_map)
-        self._exc_on_exit_expected = self._expect_exc_on_exit(exc, self._action_map)
         note(f'{self._action_map=}')
-        return self
 
     def handle(self, id: _CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
-        assert self._action_map is not None
         action_item = self._action_map[id]
         if action_item[0] == 'reraise':
             raise
@@ -234,8 +224,8 @@ class MockContext:
                 exc = last_action_item[1]
                 ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
                 note(f'before_enter: {exc!r}, {ids}')
-                self._exception_handler = ExceptionHandler.before_enter(
-                    self._data, exc, reversed(ids)
+                self._exception_handler = ExceptionHandler(
+                    self._data, exc=exc, ids=reversed(ids), before_enter=True
                 )
 
     def on_entered(self, yields: Iterable[str]) -> None:
@@ -251,8 +241,8 @@ class MockContext:
             self._exception_handler.assert_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
-        self._exception_handler = ExceptionHandler.before_raise(
-            self._data, exc, reversed(self._entered_ctx_ids)
+        self._exception_handler = ExceptionHandler(
+            self._data, exc=exc, ids=reversed(self._entered_ctx_ids)
         )
 
     def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
