@@ -173,13 +173,14 @@ class MockContext:
     _ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise')
 
     def __init__(self, data: st.DataObject) -> None:
+        self._data = data
         self._draw = data.draw
         self._generate_ctx_id = _ContextIdGenerator()
         self._ctxs_map: dict[_CtxId, GenCtxMngr] = {}
         self._created_ctx_ids: list[_CtxId] = []
         self._entered_ctx_ids: list[_CtxId] = []
         self._exiting_ctx_ids: list[_CtxId] = []
-        self._exception_handler = ExceptionHandler(data)
+        self._exception_handler: Union[ExceptionHandler, None] = None
         self._clear()
 
     def _clear(self) -> None:
@@ -201,6 +202,7 @@ class MockContext:
                     assert action_item[0] == 'yield'
                     yield action_item[1]
                 except MockException as e:
+                    assert self._exception_handler is not None
                     self._exception_handler.handle(id, e)
             finally:
                 self._exiting_ctx_ids.append(id)
@@ -227,6 +229,7 @@ class MockContext:
                 exc = last_action_item[1]
                 ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
                 note(f'before_enter: {exc!r}, {ids}')
+                self._exception_handler = ExceptionHandler(self._data)
                 self._exception_handler.before_enter(exc, reversed(ids))
 
     def on_entered(self, yields: Iterable[str]) -> None:
@@ -236,9 +239,13 @@ class MockContext:
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
-        self._exception_handler.assert_exited(exc)
+        if self._exception_handler is None:
+            assert exc is None
+        else:
+            self._exception_handler.assert_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
+        self._exception_handler = ExceptionHandler(self._data)
         self._exception_handler.before_raise(exc, reversed(self._entered_ctx_ids))
 
     def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
