@@ -2,7 +2,7 @@ import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from itertools import count
-from typing import Literal, NewType, Union
+from typing import Literal, NewType, Optional, Union
 
 from hypothesis import note
 from hypothesis import strategies as st
@@ -60,8 +60,10 @@ class ExceptionHandler:
         self._action_map = self._draw_actions(ids)
         self._exc_expected = self._expect_exc(exc, self._action_map)
 
-        self._exc_on_exit_expected = self._expect_exc_on_exit(
-            exc, self._action_map, before_enter
+        self._exc_on_exit_expected = (
+            self._expect_exc_on_enter(exc, self._action_map)
+            if before_enter
+            else self._expect_exc_on_exit(exc, self._action_map)
         )
         note(f'{self._action_map=}')
 
@@ -140,28 +142,32 @@ class ExceptionHandler:
         # )
         return tuple(ret)
 
-    def _expect_exc_on_exit(
-        self, exc: Exception, action_map: _ActionMap, before_enter: bool
+    def _expect_exc_on_enter(
+        self, exc: Exception, action_map: _ActionMap
     ) -> ExceptionExpectation:
-        exc_outermost = self._expect_outermost_exc(exc, action_map)
-        if not before_enter:
-            return ExceptionExpectation(exc_outermost)
+        exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
+        return self._expect_outermost_exc(exc, action_map, exp_on_handle=exp_on_handle)
 
-        if exc_outermost is not None:
-            return ExceptionExpectation(exc_outermost)
-        else:
-            return ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
+    def _expect_exc_on_exit(
+        self, exc: Exception, action_map: _ActionMap
+    ) -> ExceptionExpectation:
+        return self._expect_outermost_exc(exc, action_map)
 
     def _expect_outermost_exc(
-        self, exc: Exception, action_map: _ActionMap
-    ) -> Union[Exception, None]:
+        self,
+        exc: Exception,
+        action_map: _ActionMap,
+        exp_on_handle: Optional[ExceptionExpectation] = None,
+    ) -> ExceptionExpectation:
         # This method relies on the order of the items in `action_map`.
         for action, exc1 in reversed(list(action_map.values())):
             if action == 'handle':
-                return None
+                if exp_on_handle is None:
+                    return ExceptionExpectation(None)
+                return exp_on_handle
             if action == 'raise':
-                return exc1
-        return exc
+                return ExceptionExpectation(exc1)
+        return ExceptionExpectation(exc)
 
 
 class MockContext:
