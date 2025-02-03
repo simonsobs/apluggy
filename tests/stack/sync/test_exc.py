@@ -18,11 +18,11 @@ def test_eq(data: st.DataObject) -> None:
 
     if method == 'is':
         assert (exp == exc2) is (exc1 is exc2)
-    elif method == 'type':
-        assert (exp == exc2) is isinstance(exc2, type(exc1))
     elif method == 'type-msg':
         res = isinstance(exc2, type(exc1)) and str(exc2) == str(exc1)
         assert (exp == exc2) is res
+    elif method == 'type':
+        assert (exp == exc2) is isinstance(exc2, type(exc1))
     else:  # pragma: no cover
         raise ValueError(method)
 
@@ -32,21 +32,21 @@ def _st_exc(
     draw: st.DrawFn,
     exc: Union[BaseException, None],
 ) -> Union[BaseException, None]:
-    OPTIONS = ('none', 'as-is', 'type', 'type-msg', 'else')
+    OPTIONS = ('none', 'as-is', 'type-msg', 'type', 'else')
     option = draw(st.sampled_from(OPTIONS))
     if option == 'none':
         return None
     if option == 'as-is':
         return exc
+    if option == 'type-msg':
+        if exc is None:
+            return None
+        return exc.__class__(str(exc))
     if option == 'type':
         if exc is None:
             return None
         msg = draw(st.text())
         return exc.__class__(msg)
-    if option == 'type-msg':
-        if exc is None:
-            return None
-        return exc.__class__(str(exc))
     cls = draw(st.one_of(st.just(MockException), st.sampled_from(BUILTIN_EXCEPTIONS)))
     msg = draw(st.text())
     return cls(msg)
