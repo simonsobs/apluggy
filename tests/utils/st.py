@@ -3,7 +3,7 @@ import sys
 from collections import deque
 from collections.abc import Callable
 from itertools import count
-from typing import Generic, Optional, TypeVar
+from typing import Generic, Optional, TypeVar, Union
 
 from hypothesis import strategies as st
 
@@ -34,13 +34,21 @@ def st_list_until(
     st_: st.SearchStrategy[T],
     /,
     *,
-    last: T,
+    last: Union[T, set[T]],
     max_size: Optional[int] = None,
 ) -> list[T]:
-    '''A strategy for lists that draw from `st_` until `last` is drawn.'''
+    '''A strategy for lists from `st_` that ends with `last` or an item in `last`.'''
     counts = range(max_size) if max_size is not None else count()
     gen = (draw(st_) for _ in counts)
-    return list(take_until(lambda x: x == last, gen))
+
+    def _cond(x: T) -> bool:
+        if x == last:
+            return True
+        if isinstance(last, set):
+            return x in last
+        return False
+
+    return list(take_until(_cond, gen))
 
 
 class RecordReturns(Generic[P, T]):
