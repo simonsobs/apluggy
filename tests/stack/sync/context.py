@@ -60,17 +60,9 @@ class ExceptionHandler:
         self._action_map = self._draw_actions(ids)
         self._exc_expected = self._expect_exc(exc, self._action_map)
 
-        e = self._expect_outermost_exc(exc, self._action_map)
-        if not before_enter:
-            self._exc_on_exit_expected = ExceptionExpectation(e)
-        else:
-            if e is not None:
-                self._exc_on_exit_expected = ExceptionExpectation(e)
-            else:
-                self._exc_on_exit_expected = ExceptionExpectation(
-                    GeneratorDidNotYield, method='type-msg'
-                )
-
+        self._exc_on_exit_expected = self._expect_exc_on_exit(
+            exc, self._action_map, before_enter
+        )
         note(f'{self._action_map=}')
 
     def handle(self, id: _CtxId, exc: Exception) -> None:
@@ -147,6 +139,18 @@ class ExceptionHandler:
         #     (1, MockException('2')),
         # )
         return tuple(ret)
+
+    def _expect_exc_on_exit(
+        self, exc: Exception, action_map: _ActionMap, before_enter: bool
+    ) -> ExceptionExpectation:
+        exc_outermost = self._expect_outermost_exc(exc, action_map)
+        if not before_enter:
+            return ExceptionExpectation(exc_outermost)
+
+        if exc_outermost is not None:
+            return ExceptionExpectation(exc_outermost)
+        else:
+            return ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
 
     def _expect_outermost_exc(
         self, exc: Exception, action_map: _ActionMap
