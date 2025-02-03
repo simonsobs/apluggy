@@ -82,9 +82,6 @@ class ExceptionHandler:
         assert exc == self._exc_on_exit_expected
 
     def assert_raised(self) -> None:
-        # The `__eq__` comparison of `Exception` objects is default to the
-        # `__eq__` method of `object`, which uses the `is` comparison.
-        # https://docs.python.org/3/reference/datamodel.html#object.__eq__
         note(f'{self._exc_actual=!r} {self._exc_expected=!r}')
         assert self._exc_actual == list(self._exc_expected)
 
@@ -114,7 +111,7 @@ class ExceptionHandler:
 
     def _expect_exc(
         self, exc: Exception, action_map: _ActionMap
-    ) -> tuple[tuple[_CtxId, Exception], ...]:
+    ) -> tuple[tuple[_CtxId, ExceptionExpectation], ...]:
         # This method relies on the order of the items in `action_map`.
         # e.g.:
         # exc = MockException('0')
@@ -125,9 +122,9 @@ class ExceptionHandler:
         #     1: ('handle', None),
         # }
 
-        ret = list[tuple[_CtxId, Exception]]()
+        ret = list[tuple[_CtxId, ExceptionExpectation]]()
         for id, (action, exc1) in action_map.items():
-            ret.append((id, exc))
+            ret.append((id, ExceptionExpectation(exc)))
             if action == 'handle':
                 break
             if action == 'raise':
@@ -135,10 +132,10 @@ class ExceptionHandler:
                 exc = exc1
 
         # e.g., (
-        #     (4, MockException('0')),
-        #     (3, MockException('0')),
-        #     (2, MockException('0')),
-        #     (1, MockException('2')),
+        #     (4, ExceptionExpectation(MockException('0'), method='is')),
+        #     (3, ExceptionExpectation(MockException('0'), method='is')),
+        #     (2, ExceptionExpectation(MockException('0'), method='is')),
+        #     (1, ExceptionExpectation(MockException('2'), method='is')),
         # )
         return tuple(ret)
 
