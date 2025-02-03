@@ -58,14 +58,17 @@ class ExceptionHandler:
         self._exc_actual: list[tuple[_CtxId, Exception]] = []
 
         self._action_map = self._draw_actions(ids)
+        note(f'{self.__class__.__name__}: {self._action_map=}')
+
         self._exc_expected = self._expect_exc(exc, self._action_map)
+        note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
         self._exc_on_exit_expected = (
             self._expect_exc_on_enter(exc, self._action_map)
             if before_enter
             else self._expect_exc_on_exit(exc, self._action_map)
         )
-        note(f'{self._action_map=}')
+        note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
 
     def handle(self, id: _CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
@@ -93,7 +96,8 @@ class ExceptionHandler:
 
         # e.g., ['reraise', 'reraise', 'raise', 'handle']
         actions: list[ExceptionHandler._ActionName] = self._draw(
-            st_list_until(st_actions, last='handle', max_size=len(ids)), label='actions'
+            st_list_until(st_actions, last='handle', max_size=len(ids)),
+            label=f'{self.__class__.__name__}: actions',
         )
 
         # e.g., {
@@ -124,7 +128,9 @@ class ExceptionHandler:
 
         ret = list[tuple[_CtxId, ExceptionExpectation]]()
         for id, (action, exc1) in action_map.items():
-            ret.append((id, ExceptionExpectation(exc)))
+            method: ExceptionExpectation.Method
+            method = 'is' if isinstance(exc, MockException) else 'type-msg'
+            ret.append((id, ExceptionExpectation(exc, method=method)))
             if action == 'handle':
                 break
             if action == 'raise':
@@ -164,17 +170,20 @@ class ExceptionHandler:
                 return exp_on_handle
             if action == 'raise':
                 return ExceptionExpectation(exc1)
-        return ExceptionExpectation(exc)
+        method: ExceptionExpectation.Method
+        method = 'is' if isinstance(exc, MockException) else 'type-msg'
+        return ExceptionExpectation(exc, method=method)
 
 
 class MockContext:
-    _ActionName = Literal['yield', 'raise']
+    _ActionName = Literal['yield', 'raise', 'break']
     _ActionItem: TypeAlias = Union[
         tuple[Literal['yield'], str],
         tuple[Literal['raise'], Exception],
+        tuple[Literal['break'], None],
     ]
     _ActionMap: TypeAlias = Mapping[_CtxId, _ActionItem]
-    _ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise')
+    _ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise', 'break')
 
     def __init__(self, data: st.DataObject) -> None:
         self._data = data
@@ -197,17 +206,21 @@ class MockContext:
         @contextmanager
         def _ctx() -> Iterator[str]:
             self._entered_ctx_ids.append(id)
-            assert self._action_map is not None
-            action_item = self._action_map[id]
             try:
-                if action_item[0] == 'raise':
-                    raise action_item[1]
-                try:
-                    assert action_item[0] == 'yield'
-                    yield action_item[1]
-                except MockException as e:
-                    assert self._exception_handler is not None
-                    self._exception_handler.handle(id, e)
+                for _ in range(1):
+                    assert self._action_map is not None
+                    action_item = self._action_map[id]
+                    if action_item[0] == 'raise':
+                        raise action_item[1]
+                    if action_item[0] == 'break':
+                        break
+                    try:
+                        assert action_item[0] == 'yield'
+                        yield action_item[1]
+                    except Exception as e:
+                        note(f'ctx {id=} except: {e=}')
+                        assert self._exception_handler is not None
+                        self._exception_handler.handle(id, e)
             finally:
                 self._exiting_ctx_ids.append(id)
 
@@ -229,12 +242,18 @@ class MockContext:
         self._action_map = self._draw_actions(self._created_ctx_ids)
         if self._action_map:
             id, last_action_item = list(self._action_map.items())[-1]
+            ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
             if last_action_item[0] == 'raise':
                 exc = last_action_item[1]
-                ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
-                note(f'before_enter: {exc!r}, {ids}')
                 self._exception_handler = ExceptionHandler(
                     self._data, exc=exc, ids=reversed(ids), before_enter=True
+                )
+            elif last_action_item[0] == 'break':
+                self._exception_handler = ExceptionHandler(
+                    self._data,
+                    exc=GeneratorDidNotYield,
+                    ids=reversed(ids),
+                    before_enter=True,
                 )
 
     def on_entered(self, yields: Iterable[str]) -> None:
@@ -255,15 +274,17 @@ class MockContext:
         )
 
     def _draw_actions(self, ids: Iterable[_CtxId]) -> _ActionMap:
-        # return {id: ('yield', f'{id}') for id in ids}
         ids = list(ids)
         st_actions = st.sampled_from(self._ACTIONS)
         actions: list[MockContext._ActionName] = self._draw(
-            st_list_until(st_actions, last='raise', max_size=len(ids)), label='actions'
+            st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids)),
+            label=f'{self.__class__.__name__}: actions',
         )
         return {id: self._create_action_item(id, a) for id, a in zip(ids, actions)}
 
     def _create_action_item(self, id: _CtxId, action: _ActionName) -> _ActionItem:
         if action == 'raise':
             return (action, MockException(f'{id}'))
-        return (action, f'{id}')  # 'yield'
+        if action == 'yield':
+            return (action, f'{id}')
+        return (action, None)

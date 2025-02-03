@@ -1,7 +1,8 @@
+import traceback
 from typing import Union
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given, note, settings
 from hypothesis import strategies as st
 
 from apluggy import stack_gen_ctxs
@@ -53,7 +54,7 @@ def test_property(data: st.DataObject) -> None:
     n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
     gen_enabled = data.draw(st.booleans(), label='gen_enabled')
 
-    stack = data.draw(_st_stack(n_ctxs, gen_enabled))
+    stack = data.draw(_st_stack(n_ctxs, gen_enabled), label='stack')
 
     mock_context = MockContext(data=data)
     ctxs = [mock_context() for _ in range(n_ctxs)]
@@ -71,6 +72,7 @@ def test_property(data: st.DataObject) -> None:
                     mock_context.before_raise(exc0)
                     raise exc0
     except Exception as e:
+        note(traceback.format_exc())
         exc = e
     mock_context.on_exited(exc=exc)
 
