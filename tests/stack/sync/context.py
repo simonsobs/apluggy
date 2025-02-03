@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from itertools import count
 from typing import Literal, NewType, Union
@@ -16,7 +16,7 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .exc import MockException
+from .exc import ExceptionExpectation, MockException
 
 _CtxId = NewType('_CtxId', int)
 
@@ -60,11 +60,16 @@ class ExceptionHandler:
         self._action_map = self._draw_actions(ids)
         self._exc_expected = self._expect_exc(exc, self._action_map)
 
-        e = self._expect_exc_on_exit(exc, self._action_map)
+        e = self._expect_outermost_exc(exc, self._action_map)
         if not before_enter:
-            self._exc_on_exit_expected = e
+            self._exc_on_exit_expected = ExceptionExpectation(e)
         else:
-            self._exc_on_exit_expected = e or RuntimeError()
+            if e is not None:
+                self._exc_on_exit_expected = ExceptionExpectation(e)
+            else:
+                self._exc_on_exit_expected = ExceptionExpectation(
+                    RuntimeError(), method='type'
+                )
 
         note(f'{self._action_map=}')
 
@@ -80,10 +85,7 @@ class ExceptionHandler:
     def assert_exited(self, exc: Union[BaseException, None]) -> None:
         self.assert_raised()
         note(f'{exc=!r} {self._exc_on_exit_expected=!r}')
-        if isinstance(self._exc_on_exit_expected, RuntimeError):
-            assert isinstance(exc, RuntimeError)
-        else:
-            assert exc is self._exc_on_exit_expected
+        assert exc == self._exc_on_exit_expected
 
     def assert_raised(self) -> None:
         # The `__eq__` comparison of `Exception` objects is default to the
@@ -146,7 +148,7 @@ class ExceptionHandler:
         # )
         return tuple(ret)
 
-    def _expect_exc_on_exit(
+    def _expect_outermost_exc(
         self, exc: Exception, action_map: _ActionMap
     ) -> Union[Exception, None]:
         # This method relies on the order of the items in `action_map`.
