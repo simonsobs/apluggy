@@ -240,21 +240,29 @@ class MockContext:
     def before_enter(self) -> None:
         self._clear()
         self._action_map = self._draw_actions(self._created_ctx_ids)
-        if self._action_map:
-            id, last_action_item = list(self._action_map.items())[-1]
-            ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
-            if last_action_item[0] == 'raise':
-                exc = last_action_item[1]
-                self._exception_handler = ExceptionHandler(
-                    self._data, exc=exc, ids=reversed(ids), before_enter=True
-                )
-            elif last_action_item[0] == 'break':
-                self._exception_handler = ExceptionHandler(
-                    self._data,
-                    exc=GeneratorDidNotYield,
-                    ids=reversed(ids),
-                    before_enter=True,
-                )
+        note(f'{self.__class__.__name__}: {self._action_map=}')
+
+        self._exception_handler = self._draw_exception_handler()
+
+    def _draw_exception_handler(self) -> Union[ExceptionHandler, None]:
+        if not self._action_map:
+            return None
+
+        id, last_action_item = list(self._action_map.items())[-1]
+        ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
+        if last_action_item[0] == 'raise':
+            exc = last_action_item[1]
+            return ExceptionHandler(
+                self._data, exc=exc, ids=reversed(ids), before_enter=True
+            )
+        elif last_action_item[0] == 'break':
+            return ExceptionHandler(
+                self._data,
+                exc=GeneratorDidNotYield,
+                ids=reversed(ids),
+                before_enter=True,
+            )
+        return None
 
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
