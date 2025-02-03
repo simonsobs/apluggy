@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import ClassVar, Literal, Union
 
@@ -36,3 +38,24 @@ class ExceptionExpectation:
             if not isinstance(other, type(self.expected)):
                 return False
             return str(other) == str(self.expected)
+
+
+def _generator_did_not_yield() -> RuntimeError:
+    '''Return the exception raised on entering a context manager.'''
+
+    @contextmanager
+    def ctx() -> Iterator[None]:
+        if False:  # pragma: no cover
+            yield
+
+    exc: RuntimeError
+    try:
+        with ctx():  # pragma: no cover
+            assert False
+    except RuntimeError as e:
+        exc = e
+    assert isinstance(exc, RuntimeError)
+    return exc
+
+
+GeneratorDidNotYield = _generator_did_not_yield()

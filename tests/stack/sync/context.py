@@ -16,7 +16,7 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .exc import ExceptionExpectation, MockException
+from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException
 
 _CtxId = NewType('_CtxId', int)
 
@@ -68,7 +68,7 @@ class ExceptionHandler:
                 self._exc_on_exit_expected = ExceptionExpectation(e)
             else:
                 self._exc_on_exit_expected = ExceptionExpectation(
-                    RuntimeError(), method='type'
+                    GeneratorDidNotYield, method='type-msg'
                 )
 
         note(f'{self._action_map=}')
