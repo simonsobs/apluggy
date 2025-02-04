@@ -17,7 +17,7 @@ else:
 
 from .ctx_id import ContextIdGenerator, CtxId
 from .exc import GeneratorDidNotYield, MockException
-from .handle import ExceptionHandler
+from .handle import ExceptionHandler, st_exception_handler
 
 
 class MockContext:
@@ -97,15 +97,16 @@ class MockContext:
         ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
         if last_action_item[0] == 'raise':
             exc = last_action_item[1]
-            return ExceptionHandler(
-                self._data, exc=exc, ids=reversed(ids), before_enter=True
+            return self._draw(
+                st_exception_handler(exc=exc, ids=reversed(ids), before_enter=True)
             )
         elif last_action_item[0] == 'break':
-            return ExceptionHandler(
-                self._data,
-                exc=GeneratorDidNotYield,
-                ids=reversed(ids),
-                before_enter=True,
+            return self._draw(
+                st_exception_handler(
+                    exc=GeneratorDidNotYield,
+                    ids=reversed(ids),
+                    before_enter=True,
+                )
             )
         return None
 
@@ -122,8 +123,8 @@ class MockContext:
             self._exception_handler.assert_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
-        self._exception_handler = ExceptionHandler(
-            self._data, exc=exc, ids=reversed(self._entered_ctx_ids)
+        self._exception_handler = self._draw(
+            st_exception_handler(exc=exc, ids=reversed(self._entered_ctx_ids))
         )
 
     def _draw_actions(self, ids: Iterable[CtxId]) -> _ActionMap:

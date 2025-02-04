@@ -16,6 +16,14 @@ else:
 from .ctx_id import CtxId
 from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException
 
+
+@st.composite
+def st_exception_handler(
+    draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId], before_enter: bool = False
+) -> 'ExceptionHandler':
+    return ExceptionHandler(draw, exc, ids, before_enter)
+
+
 _ActionName = Literal['handle', 'reraise', 'raise']
 _ActionItem: TypeAlias = Union[
     tuple[Literal['handle', 'reraise'], None],
@@ -28,14 +36,14 @@ _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 class ExceptionHandler:
     def __init__(
         self,
-        data: st.DataObject,
+        draw: st.DrawFn,
         exc: Exception,
         ids: Iterable[CtxId],
         before_enter: bool = False,
     ) -> None:
         self._exc_actual: list[tuple[CtxId, Exception]] = []
 
-        self._action_map = data.draw(_st_action_map(ids))
+        self._action_map = draw(_st_action_map(ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
         self._exc_expected = _expect_exc(exc, self._action_map)
