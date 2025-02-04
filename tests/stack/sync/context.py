@@ -19,17 +19,17 @@ from .ctx_id import ContextIdGenerator, CtxId
 from .exc import GeneratorDidNotYield, MockException
 from .handle import ExceptionHandler, st_exception_handler
 
+_ActionName = Literal['yield', 'raise', 'break']
+_ActionItem: TypeAlias = Union[
+    tuple[Literal['yield'], str],
+    tuple[Literal['raise'], Exception],
+    tuple[Literal['break'], None],
+]
+_ActionMap: TypeAlias = Mapping[CtxId, _ActionItem]
+_ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise', 'break')
+
 
 class MockContext:
-    _ActionName = Literal['yield', 'raise', 'break']
-    _ActionItem: TypeAlias = Union[
-        tuple[Literal['yield'], str],
-        tuple[Literal['raise'], Exception],
-        tuple[Literal['break'], None],
-    ]
-    _ActionMap: TypeAlias = Mapping[CtxId, _ActionItem]
-    _ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise', 'break')
-
     def __init__(self, data: st.DataObject) -> None:
         self._draw = data.draw
         self._generate_ctx_id = ContextIdGenerator()
@@ -41,7 +41,7 @@ class MockContext:
         self._clear()
 
     def _clear(self) -> None:
-        self._action_map: Union[MockContext._ActionMap, None] = None
+        self._action_map: Union[_ActionMap, None] = None
 
     def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
@@ -128,8 +128,8 @@ class MockContext:
 
     def _draw_actions(self, ids: Iterable[CtxId]) -> _ActionMap:
         ids = list(ids)
-        st_actions = st.sampled_from(self._ACTIONS)
-        actions: list[MockContext._ActionName] = self._draw(
+        st_actions = st.sampled_from(_ACTIONS)
+        actions: list[_ActionName] = self._draw(
             st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids)),
             label=f'{self.__class__.__name__}: actions',
         )
