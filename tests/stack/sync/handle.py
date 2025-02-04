@@ -33,19 +33,20 @@ class ExceptionHandler:
         ids: Iterable[CtxId],
         before_enter: bool = False,
     ) -> None:
+        self._data = data
         self._draw = data.draw
         self._exc_actual: list[tuple[CtxId, Exception]] = []
 
-        self._action_map = self._draw_actions(ids)
+        self._action_map = _draw_actions(data, ids)
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exc_expected = self._expect_exc(exc, self._action_map)
+        self._exc_expected = _expect_exc(exc, self._action_map)
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
         self._exc_on_exit_expected = (
-            self._expect_exc_on_enter(exc, self._action_map)
+            _expect_exc_on_enter(exc, self._action_map)
             if before_enter
-            else self._expect_exc_on_exit(exc, self._action_map)
+            else _expect_exc_on_exit(exc, self._action_map)
         )
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
 
@@ -67,88 +68,91 @@ class ExceptionHandler:
         note(f'{self._exc_actual=!r} {self._exc_expected=!r}')
         assert self._exc_actual == list(self._exc_expected)
 
-    def _draw_actions(self, ids: Iterable[CtxId]) -> _ActionMap:
-        # e.g., [4, 3, 2, 1]
-        ids = list(ids)
 
-        st_actions = st.sampled_from(_ACTIONS)
+def _draw_actions(data: st.DataObject, ids: Iterable[CtxId]) -> _ActionMap:
+    # e.g., [4, 3, 2, 1]
+    ids = list(ids)
 
-        # e.g., ['reraise', 'reraise', 'raise', 'handle']
-        actions: list[_ActionName] = self._draw(
-            st_list_until(st_actions, last='handle', max_size=len(ids)),
-            label=f'{self.__class__.__name__}: actions',
-        )
+    st_actions = st.sampled_from(_ACTIONS)
 
-        # e.g., {
-        #     4: ('reraise', None),
-        #     3: ('reraise', None),
-        #     2: ('raise', MockException('2')),
-        #     1: ('handle', None),
-        # }
-        return {id: self._create_action_item(id, a) for id, a in zip(ids, actions)}
+    # e.g., ['reraise', 'reraise', 'raise', 'handle']
+    actions: list[_ActionName] = data.draw(
+        st_list_until(st_actions, last='handle', max_size=len(ids)),
+        label=f'{__name__}: actions',
+    )
 
-    def _create_action_item(self, id: CtxId, action: _ActionName) -> _ActionItem:
-        if action == 'raise':
-            return (action, MockException(f'{id}'))
-        return (action, None)
+    # e.g., {
+    #     4: ('reraise', None),
+    #     3: ('reraise', None),
+    #     2: ('raise', MockException('2')),
+    #     1: ('handle', None),
+    # }
+    return {id: _create_action_item(id, a) for id, a in zip(ids, actions)}
 
-    def _expect_exc(
-        self, exc: Exception, action_map: _ActionMap
-    ) -> tuple[tuple[CtxId, ExceptionExpectation], ...]:
-        # This method relies on the order of the items in `action_map`.
-        # e.g.:
-        # exc = MockException('0')
-        # action_map = {
-        #     4: ('reraise', None),
-        #     3: ('reraise', None),
-        #     2: ('raise', MockException('2')),
-        #     1: ('handle', None),
-        # }
 
-        ret = list[tuple[CtxId, ExceptionExpectation]]()
-        for id, (action, exc1) in action_map.items():
-            method: ExceptionExpectation.Method
-            method = 'is' if isinstance(exc, MockException) else 'type-msg'
-            ret.append((id, ExceptionExpectation(exc, method=method)))
-            if action == 'handle':
-                break
-            if action == 'raise':
-                assert exc1 is not None
-                exc = exc1
+def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
+    if action == 'raise':
+        return (action, MockException(f'{id}'))
+    return (action, None)
 
-        # e.g., (
-        #     (4, ExceptionExpectation(MockException('0'), method='is')),
-        #     (3, ExceptionExpectation(MockException('0'), method='is')),
-        #     (2, ExceptionExpectation(MockException('0'), method='is')),
-        #     (1, ExceptionExpectation(MockException('2'), method='is')),
-        # )
-        return tuple(ret)
 
-    def _expect_exc_on_enter(
-        self, exc: Exception, action_map: _ActionMap
-    ) -> ExceptionExpectation:
-        exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
-        return self._expect_outermost_exc(exc, action_map, exp_on_handle=exp_on_handle)
+def _expect_exc(
+    exc: Exception, action_map: _ActionMap
+) -> tuple[tuple[CtxId, ExceptionExpectation], ...]:
+    # This method relies on the order of the items in `action_map`.
+    # e.g.:
+    # exc = MockException('0')
+    # action_map = {
+    #     4: ('reraise', None),
+    #     3: ('reraise', None),
+    #     2: ('raise', MockException('2')),
+    #     1: ('handle', None),
+    # }
 
-    def _expect_exc_on_exit(
-        self, exc: Exception, action_map: _ActionMap
-    ) -> ExceptionExpectation:
-        return self._expect_outermost_exc(exc, action_map)
-
-    def _expect_outermost_exc(
-        self,
-        exc: Exception,
-        action_map: _ActionMap,
-        exp_on_handle: Optional[ExceptionExpectation] = None,
-    ) -> ExceptionExpectation:
-        # This method relies on the order of the items in `action_map`.
-        for action, exc1 in reversed(list(action_map.values())):
-            if action == 'handle':
-                if exp_on_handle is None:
-                    return ExceptionExpectation(None)
-                return exp_on_handle
-            if action == 'raise':
-                return ExceptionExpectation(exc1)
+    ret = list[tuple[CtxId, ExceptionExpectation]]()
+    for id, (action, exc1) in action_map.items():
         method: ExceptionExpectation.Method
         method = 'is' if isinstance(exc, MockException) else 'type-msg'
-        return ExceptionExpectation(exc, method=method)
+        ret.append((id, ExceptionExpectation(exc, method=method)))
+        if action == 'handle':
+            break
+        if action == 'raise':
+            assert exc1 is not None
+            exc = exc1
+
+    # e.g., (
+    #     (4, ExceptionExpectation(MockException('0'), method='is')),
+    #     (3, ExceptionExpectation(MockException('0'), method='is')),
+    #     (2, ExceptionExpectation(MockException('0'), method='is')),
+    #     (1, ExceptionExpectation(MockException('2'), method='is')),
+    # )
+    return tuple(ret)
+
+
+def _expect_exc_on_enter(
+    exc: Exception, action_map: _ActionMap
+) -> ExceptionExpectation:
+    exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
+    return _expect_outermost_exc(exc, action_map, exp_on_handle=exp_on_handle)
+
+
+def _expect_exc_on_exit(exc: Exception, action_map: _ActionMap) -> ExceptionExpectation:
+    return _expect_outermost_exc(exc, action_map)
+
+
+def _expect_outermost_exc(
+    exc: Exception,
+    action_map: _ActionMap,
+    exp_on_handle: Optional[ExceptionExpectation] = None,
+) -> ExceptionExpectation:
+    # This method relies on the order of the items in `action_map`.
+    for action, exc1 in reversed(list(action_map.values())):
+        if action == 'handle':
+            if exp_on_handle is None:
+                return ExceptionExpectation(None)
+            return exp_on_handle
+        if action == 'raise':
+            return ExceptionExpectation(exc1)
+    method: ExceptionExpectation.Method
+    method = 'is' if isinstance(exc, MockException) else 'type-msg'
+    return ExceptionExpectation(exc, method=method)
