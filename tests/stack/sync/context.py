@@ -105,7 +105,7 @@ class MockContext:
         if self._exception_handler is None:
             assert exc is None
         else:
-            self._exception_handler.assert_exited(exc)
+            self._exception_handler.assert_on_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
         self._exception_handler = self._draw(

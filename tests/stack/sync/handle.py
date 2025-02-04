@@ -79,12 +79,12 @@ class ExceptionHandler:
             raise action_item[1]
         assert action_item[0] == 'handle'
 
-    def assert_exited(self, exc: Union[BaseException, None]) -> None:
-        self.assert_raised()
+    def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
+        self._assert_raised()
         note(f'{exc=!r} {self._exc_on_exit_expected=!r}')
         assert exc == self._exc_on_exit_expected
 
-    def assert_raised(self) -> None:
+    def _assert_raised(self) -> None:
         note(f'{self._exc_actual=!r} {self._exc_expected=!r}')
         assert self._exc_actual == list(self._exc_expected)
 
