@@ -86,9 +86,7 @@ class MockContext:
         self._action_map = self._draw(_draw_actions(self._created_ctx_ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exception_handler = self._draw(
-            _st_exception_handler(self._action_map, self._created_ctx_ids)
-        )
+        self._exception_handler = self._draw(_st_exception_handler(self._action_map))
         note(f'{self.__class__.__name__}: {self._exception_handler=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
@@ -129,13 +127,15 @@ def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
 
 
 def _st_exception_handler(
-    action_map: _ActionMap, created_ctx_ids: list[CtxId]
+    action_map: _ActionMap,
 ) -> Union[st.SearchStrategy[ExceptionHandler], st.SearchStrategy[None]]:
     if not action_map:
         return st.none()
 
-    id, last_action_item = list(action_map.items())[-1]
-    ids = created_ctx_ids[: created_ctx_ids.index(id)]
+    *up_to_last, last = action_map.items()
+    ids = [id for id, _ in up_to_last]
+    _, last_action_item = last
+
     if last_action_item[0] == 'raise':
         exc = last_action_item[1]
         return st_exception_handler(exc=exc, ids=reversed(ids), before_enter=True)
