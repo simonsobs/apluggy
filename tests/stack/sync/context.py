@@ -17,7 +17,11 @@ else:
 
 from .ctx_id import ContextIdGenerator, CtxId
 from .exc import GeneratorDidNotYield, MockException
-from .handle import ExceptionHandler, st_exception_handler
+from .handle import (
+    ExceptionHandler,
+    st_exception_handler_before_enter,
+    st_exception_handler_before_raise,
+)
 
 _ActionName = Literal['yield', 'raise', 'break']
 _ActionItem: TypeAlias = Union[
@@ -86,7 +90,9 @@ class MockContext:
         self._action_map = self._draw(_draw_actions(self._created_ctx_ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exception_handler = self._draw(_st_exception_handler(self._action_map))
+        self._exception_handler = self._draw(
+            _st_exception_handler_before_enter(self._action_map)
+        )
         note(f'{self.__class__.__name__}: {self._exception_handler=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
@@ -103,7 +109,9 @@ class MockContext:
 
     def before_raise(self, exc: Exception) -> None:
         self._exception_handler = self._draw(
-            st_exception_handler(exc=exc, ids=reversed(self._entered_ctx_ids))
+            st_exception_handler_before_raise(
+                exc=exc, ids=reversed(self._entered_ctx_ids)
+            )
         )
 
 
@@ -126,7 +134,7 @@ def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
     return (action, None)
 
 
-def _st_exception_handler(
+def _st_exception_handler_before_enter(
     action_map: _ActionMap,
 ) -> Union[st.SearchStrategy[ExceptionHandler], st.SearchStrategy[None]]:
     if not action_map:
@@ -138,11 +146,9 @@ def _st_exception_handler(
 
     if last_action_item[0] == 'raise':
         exc = last_action_item[1]
-        return st_exception_handler(exc=exc, ids=reversed(ids), before_enter=True)
+        return st_exception_handler_before_enter(exc=exc, ids=reversed(ids))
     elif last_action_item[0] == 'break':
-        return st_exception_handler(
-            exc=GeneratorDidNotYield,
-            ids=reversed(ids),
-            before_enter=True,
+        return st_exception_handler_before_enter(
+            exc=GeneratorDidNotYield, ids=reversed(ids)
         )
     return st.none()

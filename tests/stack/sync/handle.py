@@ -18,10 +18,17 @@ from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException
 
 
 @st.composite
-def st_exception_handler(
-    draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId], before_enter: bool = False
+def st_exception_handler_before_enter(
+    draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
 ) -> 'ExceptionHandler':
-    return ExceptionHandler(draw, exc, ids, before_enter)
+    return ExceptionHandler.before_enter(draw, exc, ids)
+
+
+@st.composite
+def st_exception_handler_before_raise(
+    draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
+) -> 'ExceptionHandler':
+    return ExceptionHandler.before_raise(draw, exc, ids)
 
 
 _ActionName = Literal['handle', 'reraise', 'raise']
@@ -34,13 +41,7 @@ _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
 
 class ExceptionHandler:
-    def __init__(
-        self,
-        draw: st.DrawFn,
-        exc: Exception,
-        ids: Iterable[CtxId],
-        before_enter: bool = False,
-    ) -> None:
+    def __init__(self, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]) -> None:
         self._exc_actual: list[tuple[CtxId, Exception]] = []
 
         self._action_map = draw(_st_action_map(ids))
@@ -49,12 +50,25 @@ class ExceptionHandler:
         self._exc_expected = _expect_exc(exc, self._action_map)
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
-        self._exc_on_exit_expected = (
-            _expect_exc_on_enter(exc, self._action_map)
-            if before_enter
-            else _expect_exc_on_exit(exc, self._action_map)
-        )
+        self._exc_on_exit_expected: ExceptionExpectation
+
+    @classmethod
+    def before_enter(
+        cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
+    ) -> 'ExceptionHandler':
+        self = cls(draw, exc, ids)
+        self._exc_on_exit_expected = _expect_exc_on_enter(exc, self._action_map)
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
+        return self
+
+    @classmethod
+    def before_raise(
+        cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
+    ) -> 'ExceptionHandler':
+        self = cls(draw, exc, ids)
+        self._exc_on_exit_expected = _expect_exc_on_exit(exc, self._action_map)
+        note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
+        return self
 
     def handle(self, id: CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
