@@ -75,10 +75,9 @@ def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
     st_actions = st.sampled_from(_ACTIONS)
 
     # e.g., ['reraise', 'reraise', 'raise', 'handle']
-    actions: list[_ActionName] = draw(
-        st_list_until(st_actions, last='handle', max_size=len(ids)),
-        label=f'{__name__}: actions',
-    )
+    actions: list[_ActionName]
+    actions = draw(st_list_until(st_actions, last='handle', max_size=len(ids)))
+    note(f'{ExceptionHandler.__name__}: {actions=}')
 
     # e.g., {
     #     4: ('reraise', None),
