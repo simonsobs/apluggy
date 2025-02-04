@@ -83,31 +83,13 @@ class MockContext:
 
     def before_enter(self) -> None:
         self._clear()
-        self._action_map = self._draw_actions(self._created_ctx_ids)
+        self._action_map = self._draw(_draw_actions(self._created_ctx_ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exception_handler = self._draw_exception_handler()
-
-    def _draw_exception_handler(self) -> Union[ExceptionHandler, None]:
-        if not self._action_map:
-            return None
-
-        id, last_action_item = list(self._action_map.items())[-1]
-        ids = self._created_ctx_ids[: self._created_ctx_ids.index(id)]
-        if last_action_item[0] == 'raise':
-            exc = last_action_item[1]
-            return self._draw(
-                st_exception_handler(exc=exc, ids=reversed(ids), before_enter=True)
-            )
-        elif last_action_item[0] == 'break':
-            return self._draw(
-                st_exception_handler(
-                    exc=GeneratorDidNotYield,
-                    ids=reversed(ids),
-                    before_enter=True,
-                )
-            )
-        return None
+        self._exception_handler = self._draw(
+            _st_exception_handler(self._action_map, self._created_ctx_ids)
+        )
+        note(f'{self.__class__.__name__}: {self._exception_handler=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
@@ -126,18 +108,41 @@ class MockContext:
             st_exception_handler(exc=exc, ids=reversed(self._entered_ctx_ids))
         )
 
-    def _draw_actions(self, ids: Iterable[CtxId]) -> _ActionMap:
-        ids = list(ids)
-        st_actions = st.sampled_from(_ACTIONS)
-        actions: list[_ActionName] = self._draw(
-            st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids)),
-            label=f'{self.__class__.__name__}: actions',
-        )
-        return {id: self._create_action_item(id, a) for id, a in zip(ids, actions)}
 
-    def _create_action_item(self, id: CtxId, action: _ActionName) -> _ActionItem:
-        if action == 'raise':
-            return (action, MockException(f'{id}'))
-        if action == 'yield':
-            return (action, f'{id}')
-        return (action, None)
+@st.composite
+def _draw_actions(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
+    ids = list(ids)
+    st_actions = st.sampled_from(_ACTIONS)
+    actions: list[_ActionName] = draw(
+        st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids))
+    )
+    note(f'{MockContext.__name__}: {actions=}')
+    return {id: _create_action_item(id, a) for id, a in zip(ids, actions)}
+
+
+def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
+    if action == 'raise':
+        return (action, MockException(f'{id}'))
+    if action == 'yield':
+        return (action, f'{id}')
+    return (action, None)
+
+
+def _st_exception_handler(
+    action_map: _ActionMap, created_ctx_ids: list[CtxId]
+) -> Union[st.SearchStrategy[ExceptionHandler], st.SearchStrategy[None]]:
+    if not action_map:
+        return st.none()
+
+    id, last_action_item = list(action_map.items())[-1]
+    ids = created_ctx_ids[: created_ctx_ids.index(id)]
+    if last_action_item[0] == 'raise':
+        exc = last_action_item[1]
+        return st_exception_handler(exc=exc, ids=reversed(ids), before_enter=True)
+    elif last_action_item[0] == 'break':
+        return st_exception_handler(
+            exc=GeneratorDidNotYield,
+            ids=reversed(ids),
+            before_enter=True,
+        )
+    return st.none()
