@@ -33,11 +33,9 @@ class ExceptionHandler:
         ids: Iterable[CtxId],
         before_enter: bool = False,
     ) -> None:
-        self._data = data
-        self._draw = data.draw
         self._exc_actual: list[tuple[CtxId, Exception]] = []
 
-        self._action_map = _draw_actions(data, ids)
+        self._action_map = data.draw(_st_action_map(ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
         self._exc_expected = _expect_exc(exc, self._action_map)
@@ -69,14 +67,15 @@ class ExceptionHandler:
         assert self._exc_actual == list(self._exc_expected)
 
 
-def _draw_actions(data: st.DataObject, ids: Iterable[CtxId]) -> _ActionMap:
+@st.composite
+def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
     # e.g., [4, 3, 2, 1]
     ids = list(ids)
 
     st_actions = st.sampled_from(_ACTIONS)
 
     # e.g., ['reraise', 'reraise', 'raise', 'handle']
-    actions: list[_ActionName] = data.draw(
+    actions: list[_ActionName] = draw(
         st_list_until(st_actions, last='handle', max_size=len(ids)),
         label=f'{__name__}: actions',
     )
