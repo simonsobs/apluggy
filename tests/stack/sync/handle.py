@@ -16,16 +16,16 @@ else:
 from .ctx_id import CtxId
 from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException
 
+_ActionName = Literal['handle', 'reraise', 'raise']
+_ActionItem: TypeAlias = Union[
+    tuple[Literal['handle', 'reraise'], None],
+    tuple[Literal['raise'], Exception],
+]
+_ActionMap: TypeAlias = Mapping[CtxId, _ActionItem]
+_ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
+
 
 class ExceptionHandler:
-    _ActionName = Literal['handle', 'reraise', 'raise']
-    _ActionItem: TypeAlias = Union[
-        tuple[Literal['handle', 'reraise'], None],
-        tuple[Literal['raise'], Exception],
-    ]
-    _ActionMap: TypeAlias = Mapping[CtxId, _ActionItem]
-    _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
-
     def __init__(
         self,
         data: st.DataObject,
@@ -71,10 +71,10 @@ class ExceptionHandler:
         # e.g., [4, 3, 2, 1]
         ids = list(ids)
 
-        st_actions = st.sampled_from(self._ACTIONS)
+        st_actions = st.sampled_from(_ACTIONS)
 
         # e.g., ['reraise', 'reraise', 'raise', 'handle']
-        actions: list[ExceptionHandler._ActionName] = self._draw(
+        actions: list[_ActionName] = self._draw(
             st_list_until(st_actions, last='handle', max_size=len(ids)),
             label=f'{self.__class__.__name__}: actions',
         )
