@@ -31,7 +31,6 @@ class MockContext:
     _ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise', 'break')
 
     def __init__(self, data: st.DataObject) -> None:
-        self._data = data
         self._draw = data.draw
         self._generate_ctx_id = ContextIdGenerator()
         self._ctxs_map: dict[CtxId, GenCtxMngr] = {}
