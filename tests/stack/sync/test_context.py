@@ -64,13 +64,25 @@ def test_property(data: st.DataObject) -> None:
     mock_context.before_enter()
     exc: Union[Exception, None] = None
     try:
-        with stack(iter(ctxs)) as y:
+        with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
-            if data.draw(st.booleans()):
-                with mock_context.context():
-                    exc0 = MockException('0')
-                    mock_context.before_raise(exc0)
-                    raise exc0
+            while True:
+                action = data.draw(st.sampled_from(('send', 'raise', 'break')))
+                # action = data.draw(st.sampled_from(('send')))
+                if action == 'send':
+                    sent = 'send'
+                    mock_context.before_send(sent)
+                    y = stacked.gen.send(sent)
+                elif action == 'raise':
+                    # if data.draw(st.booleans()):
+                    with mock_context.context():
+                        exc0 = MockException('0')
+                        mock_context.before_raise(exc0)
+                        raise exc0
+                elif action == 'break':
+                    break
+                else:  # pragma: no cover
+                    raise ValueError(f'Unknown action: {action!r}')
     except Exception as e:
         note(traceback.format_exc())
         exc = e

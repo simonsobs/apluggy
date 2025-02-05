@@ -31,6 +31,11 @@ def st_exception_handler_before_raise(
     return ExceptionHandler.before_raise(draw, exc, ids)
 
 
+@st.composite
+def st_exception_handler_before_send(draw: st.DrawFn) -> 'ExceptionHandler':
+    return ExceptionHandlerBeforeRaise(draw)
+
+
 _ActionName = Literal['handle', 'reraise', 'raise']
 _ActionItem: TypeAlias = Union[
     tuple[Literal['handle', 'reraise'], None],
@@ -176,3 +181,18 @@ def _expect_outermost_exc(
     method: ExceptionExpectation.Method
     method = 'is' if isinstance(exc, MockException) else 'type-msg'
     return ExceptionExpectation(exc, method=method)
+
+
+class ExceptionHandlerBeforeRaise(ExceptionHandler):
+    def __init__(self, draw: st.DrawFn) -> None:
+        self._exc_on_exit_expected = ExceptionExpectation(
+            StopIteration(), method='type'
+        )
+        note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
+
+    def handle(self, id: CtxId, exc: Exception) -> None:
+        note(f'{self.__class__.__name__}: {id=} {exc=}')
+
+    def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
+        note(f'{self.__class__.__name__}: {exc=}')
+        assert self._exc_on_exit_expected == exc

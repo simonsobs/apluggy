@@ -21,6 +21,7 @@ from .handle import (
     ExceptionHandler,
     st_exception_handler_before_enter,
     st_exception_handler_before_raise,
+    st_exception_handler_before_send,
 )
 
 _ActionName = Literal['yield', 'raise', 'break']
@@ -55,7 +56,7 @@ class MockContext:
         def _ctx() -> Iterator[str]:
             self._entered_ctx_ids.append(id)
             try:
-                for _ in range(1):
+                while True:
                     assert self._action_map is not None
                     action_item = self._action_map[id]
                     if action_item[0] == 'raise':
@@ -64,11 +65,12 @@ class MockContext:
                         break
                     try:
                         assert action_item[0] == 'yield'
-                        yield action_item[1]
+                        sent = yield action_item[1]
                     except Exception as e:
                         note(f'ctx {id=} except: {e=}')
                         assert self._exception_handler is not None
                         self._exception_handler.handle(id, e)
+                    break
             finally:
                 self._exiting_ctx_ids.append(id)
 
@@ -99,6 +101,11 @@ class MockContext:
         assert self._entered_ctx_ids == self._created_ctx_ids
         assert self._action_map is not None
         assert list(yields) == [self._action_map[id][1] for id in self._entered_ctx_ids]
+
+    def before_send(self, sent: str) -> None:
+        note(f'{MockContext.__name__}: {sent=}')
+        self._action_map = {}
+        self._exception_handler = self._draw(st_exception_handler_before_send())
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
