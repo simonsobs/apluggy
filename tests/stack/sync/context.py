@@ -17,12 +17,7 @@ else:
 
 from .ctx_id import ContextIdGenerator, CtxId
 from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap_exc
-from .handle import (
-    ExceptionHandler,
-    ExceptionHandlerNull,
-    st_exception_handler_before_enter,
-    st_exception_handler_before_raise,
-)
+from .handle import ExceptionHandler, ExceptionHandlerNull, st_exception_handler
 
 _ActionName = Literal['yield', 'raise', 'break']
 _ActionItem: TypeAlias = Union[
@@ -98,7 +93,7 @@ class MockContext:
         exp, ids = _expect_exc_and_entered_ctx_ids(self._action_map)
         if exp != None:  # noqa: E711
             self._exc_handler = self._draw(
-                st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
+                st_exception_handler(exp=exp, ids=reversed(ids))
             )
         note(f'{self.__class__.__name__}: {self._exc_handler=}')
 
@@ -128,9 +123,7 @@ class MockContext:
         self._clear()
         exp = wrap_exc(exc)
         self._exc_handler = self._draw(
-            st_exception_handler_before_raise(
-                exp=exp, ids=reversed(self._entered_ctx_ids)
-            )
+            st_exception_handler(exp=exp, ids=reversed(self._entered_ctx_ids))
         )
 
         if self._exc_handler is not None:

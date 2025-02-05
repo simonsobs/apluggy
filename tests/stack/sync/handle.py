@@ -14,21 +14,14 @@ else:
 
 
 from .ctx_id import CtxId
-from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap_exc
+from .exc import ExceptionExpectation, MockException, wrap_exc
 
 
 @st.composite
-def st_exception_handler_before_enter(
+def st_exception_handler(
     draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
 ) -> 'ExceptionHandler':
-    return ExceptionHandler.before_enter(draw, exp, ids)
-
-
-@st.composite
-def st_exception_handler_before_raise(
-    draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
-) -> 'ExceptionHandler':
-    return ExceptionHandler.before_raise(draw, exp, ids)
+    return ExceptionHandler(draw, exp, ids)
 
 
 _ActionName = Literal['handle', 'reraise', 'raise']
@@ -52,20 +45,6 @@ class ExceptionHandler:
 
         self._exc_expected = _expect_exc(exp, self._action_map)
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
-
-    @classmethod
-    def before_enter(
-        cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
-    ) -> 'ExceptionHandler':
-        self = cls(draw, exp, ids)
-        return self
-
-    @classmethod
-    def before_raise(
-        cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
-    ) -> 'ExceptionHandler':
-        self = cls(draw, exp, ids)
-        return self
 
     def handle(self, id: CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
