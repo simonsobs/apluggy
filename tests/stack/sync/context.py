@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 from hypothesis import note
 from hypothesis import strategies as st
@@ -19,9 +19,9 @@ from .ctx_id import ContextIdGenerator, CtxId
 from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap_exc
 from .handle import (
     ExceptionHandler,
+    ExceptionHandlerNull,
     st_exception_handler_before_enter,
     st_exception_handler_before_raise,
-    st_exception_handler_before_send,
 )
 
 _ActionName = Literal['yield', 'raise', 'break']
@@ -42,10 +42,10 @@ class MockContext:
         self._created_ctx_ids: list[CtxId] = []
         self._entered_ctx_ids: list[CtxId] = []
         self._exiting_ctx_ids: list[CtxId] = []
-        self._exc_handler: Union[ExceptionHandler, None] = None
         self._clear()
 
     def _clear(self) -> None:
+        self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
         self._action_map: Union[_ActionMap, None] = None
         self._exc_expected = ExceptionExpectation(None)
 
@@ -96,19 +96,16 @@ class MockContext:
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
         exp, ids = _expect_exc_and_entered_ctx_ids(self._action_map)
-        if exp == None:  # noqa: E711
-            self._exc_handler = None
-        else:
+        if exp != None:  # noqa: E711
             self._exc_handler = self._draw(
                 st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
             )
         note(f'{self.__class__.__name__}: {self._exc_handler=}')
 
-        if self._exc_handler is not None:
-            exp_on_handle = wrap_exc(GeneratorDidNotYield)
-            self._exc_expected = self._exc_handler.expect_outermost_exc(
-                exp_on_handle=exp_on_handle
-            )
+        exp_on_handle = wrap_exc(GeneratorDidNotYield)
+        self._exc_expected = self._exc_handler.expect_outermost_exc(
+            exp_on_handle=exp_on_handle
+        )
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
@@ -119,10 +116,7 @@ class MockContext:
     def before_send(self, sent: str) -> None:
         note(f'{MockContext.__name__}: {sent=}')
         self._clear()
-        self._exc_handler = self._draw(st_exception_handler_before_send())
-
-        if self._exc_handler is not None:
-            self._exc_expected = wrap_exc(StopIteration())
+        self._exc_expected = wrap_exc(StopIteration())
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
