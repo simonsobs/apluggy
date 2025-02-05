@@ -62,7 +62,13 @@ class ExceptionHandler:
         cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
         self = cls(draw, exc, ids)
-        self._exc_on_exit_expected = _expect_exc_on_enter(exc, self._action_map)
+        method: ExceptionExpectation.Method
+        method = 'is' if isinstance(exc, MockException) else 'type-msg'
+        exp_on_reraise = ExceptionExpectation(exc, method=method)
+        exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
+        self._exc_on_exit_expected = _expect_outermost_exc(
+            self._action_map, exp_on_reraise, exp_on_handle
+        )
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
 
@@ -71,7 +77,10 @@ class ExceptionHandler:
         cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
         self = cls(draw, exc, ids)
-        self._exc_on_exit_expected = _expect_exc_on_exit(exc, self._action_map)
+        exp_on_reraise = ExceptionExpectation(exc)
+        self._exc_on_exit_expected = _expect_outermost_exc(
+            self._action_map, exp_on_reraise
+        )
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
 
@@ -154,20 +163,9 @@ def _expect_exc(
     return tuple(ret)
 
 
-def _expect_exc_on_enter(
-    exc: Exception, action_map: _ActionMap
-) -> ExceptionExpectation:
-    exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
-    return _expect_outermost_exc(exc, action_map, exp_on_handle=exp_on_handle)
-
-
-def _expect_exc_on_exit(exc: Exception, action_map: _ActionMap) -> ExceptionExpectation:
-    return _expect_outermost_exc(exc, action_map)
-
-
 def _expect_outermost_exc(
-    exc: Exception,
     action_map: _ActionMap,
+    exp_on_reraise: ExceptionExpectation,
     exp_on_handle: Optional[ExceptionExpectation] = None,
 ) -> ExceptionExpectation:
     # This method relies on the order of the items in `action_map`.
@@ -178,9 +176,7 @@ def _expect_outermost_exc(
             return exp_on_handle
         if action == 'raise':
             return ExceptionExpectation(exc1)
-    method: ExceptionExpectation.Method
-    method = 'is' if isinstance(exc, MockException) else 'type-msg'
-    return ExceptionExpectation(exc, method=method)
+    return exp_on_reraise
 
 
 class ExceptionHandlerBeforeRaise(ExceptionHandler):
