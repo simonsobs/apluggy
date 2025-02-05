@@ -46,13 +46,15 @@ _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
 
 class ExceptionHandler:
-    def __init__(self, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]) -> None:
+    def __init__(
+        self, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
+    ) -> None:
         self._exc_actual: list[tuple[CtxId, Exception]] = []
 
         self._action_map = draw(_st_action_map(ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exc_expected = _expect_exc(exc, self._action_map)
+        self._exc_expected = _expect_exc(exp, self._action_map)
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
         self._exc_on_exit_expected: ExceptionExpectation
@@ -62,7 +64,7 @@ class ExceptionHandler:
         cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
         exp_on_reraise = _wrap_exc(exc)
-        self = cls(draw, exc, ids)
+        self = cls(draw, exp_on_reraise, ids)
         exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
         self._exc_on_exit_expected = _expect_outermost_exc(
             self._action_map, exp_on_reraise, exp_on_handle
@@ -75,7 +77,7 @@ class ExceptionHandler:
         cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
         exp_on_reraise = ExceptionExpectation(exc)
-        self = cls(draw, exc, ids)
+        self = cls(draw, exp_on_reraise, ids)
         self._exc_on_exit_expected = _expect_outermost_exc(
             self._action_map, exp_on_reraise
         )
@@ -129,11 +131,11 @@ def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
 
 
 def _expect_exc(
-    exc: Exception, action_map: _ActionMap
+    exp: ExceptionExpectation, action_map: _ActionMap
 ) -> tuple[tuple[CtxId, ExceptionExpectation], ...]:
     # This method relies on the order of the items in `action_map`.
     # e.g.:
-    # exc = MockException('0')
+    # exp = ExceptionExpectation(MockException('0'), method='is')
     # action_map = {
     #     4: ('reraise', None),
     #     3: ('reraise', None),
@@ -143,12 +145,12 @@ def _expect_exc(
 
     ret = list[tuple[CtxId, ExceptionExpectation]]()
     for id, (action, exc1) in action_map.items():
-        ret.append((id, _wrap_exc(exc)))
+        ret.append((id, exp))
         if action == 'handle':
             break
         if action == 'raise':
             assert exc1 is not None
-            exc = exc1
+            exp = _wrap_exc(exc1)
 
     # e.g., (
     #     (4, ExceptionExpectation(MockException('0'), method='is')),
@@ -158,10 +160,12 @@ def _expect_exc(
     # )
     return tuple(ret)
 
+
 def _wrap_exc(exc: Exception) -> ExceptionExpectation:
     method: ExceptionExpectation.Method
     method = 'is' if isinstance(exc, MockException) else 'type-msg'
     return ExceptionExpectation(exc, method=method)
+
 
 def _expect_outermost_exc(
     action_map: _ActionMap,
