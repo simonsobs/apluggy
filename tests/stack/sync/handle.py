@@ -66,8 +66,8 @@ class ExceptionHandler:
         exp_on_reraise = _wrap_exc(exc)
         self = cls(draw, exp_on_reraise, ids)
         exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
-        self._exc_on_exit_expected = _expect_outermost_exc(
-            self._action_map, exp_on_reraise, exp_on_handle
+        self._exc_on_exit_expected = self.expect_outermost_exc(
+            exp_on_reraise, exp_on_handle
         )
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
@@ -78,9 +78,7 @@ class ExceptionHandler:
     ) -> 'ExceptionHandler':
         exp_on_reraise = ExceptionExpectation(exc)
         self = cls(draw, exp_on_reraise, ids)
-        self._exc_on_exit_expected = _expect_outermost_exc(
-            self._action_map, exp_on_reraise
-        )
+        self._exc_on_exit_expected = self.expect_outermost_exc(exp_on_reraise)
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
 
@@ -92,6 +90,15 @@ class ExceptionHandler:
         if action_item[0] == 'raise':
             raise action_item[1]
         assert action_item[0] == 'handle'
+
+    def expect_outermost_exc(
+        self,
+        exp_on_reraise: ExceptionExpectation,
+        exp_on_handle: Optional[ExceptionExpectation] = None,
+    ) -> ExceptionExpectation:
+        # From the innermost to the outermost.
+        action_items = reversed(list(self._action_map.values()))
+        return _expect_last_exc(action_items, exp_on_reraise, exp_on_handle)
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         self._assert_raised()
@@ -167,13 +174,12 @@ def _wrap_exc(exc: Exception) -> ExceptionExpectation:
     return ExceptionExpectation(exc, method=method)
 
 
-def _expect_outermost_exc(
-    action_map: _ActionMap,
+def _expect_last_exc(
+    action_items: Iterable[_ActionItem],
     exp_on_reraise: ExceptionExpectation,
     exp_on_handle: Optional[ExceptionExpectation] = None,
 ) -> ExceptionExpectation:
-    # This method relies on the order of the items in `action_map`.
-    for action, exc1 in reversed(list(action_map.values())):
+    for action, exc1 in action_items:
         if action == 'handle':
             if exp_on_handle is None:
                 return ExceptionExpectation(None)
