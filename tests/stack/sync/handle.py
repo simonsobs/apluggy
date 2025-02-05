@@ -21,14 +21,16 @@ from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap
 def st_exception_handler_before_enter(
     draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
 ) -> 'ExceptionHandler':
-    return ExceptionHandler.before_enter(draw, exc, ids)
+    exp = wrap_exc(exc)
+    return ExceptionHandler.before_enter(draw, exp, ids)
 
 
 @st.composite
 def st_exception_handler_before_raise(
     draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
 ) -> 'ExceptionHandler':
-    return ExceptionHandler.before_raise(draw, exc, ids)
+    exp = wrap_exc(exc)
+    return ExceptionHandler.before_raise(draw, exp, ids)
 
 
 @st.composite
@@ -61,11 +63,11 @@ class ExceptionHandler:
 
     @classmethod
     def before_enter(
-        cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
+        cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
-        exp_on_reraise = wrap_exc(exc)
+        exp_on_reraise = exp
         self = cls(draw, exp_on_reraise, ids)
-        exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
+        exp_on_handle = wrap_exc(GeneratorDidNotYield)
         self._exc_on_exit_expected = self.expect_outermost_exc(
             exp_on_reraise, exp_on_handle
         )
@@ -74,9 +76,9 @@ class ExceptionHandler:
 
     @classmethod
     def before_raise(
-        cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
+        cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
-        exp_on_reraise = ExceptionExpectation(exc)
+        exp_on_reraise = exp
         self = cls(draw, exp_on_reraise, ids)
         self._exc_on_exit_expected = self.expect_outermost_exc(exp_on_reraise)
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
