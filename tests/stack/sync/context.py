@@ -121,10 +121,7 @@ class MockContext:
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
-        if self._exc_handler is None:
-            assert exc is None
-        else:
-            self._exc_handler.assert_on_exited(exc)
+        self._exc_handler.assert_on_exited(exc)
         assert self._exc_expected == exc
 
     def before_raise(self, exc: Exception) -> None:
