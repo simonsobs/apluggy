@@ -51,6 +51,7 @@ class ExceptionHandler:
     def __init__(
         self, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> None:
+        self._exp = exp
         self._exc_actual: list[tuple[CtxId, Exception]] = []
 
         self._action_map = draw(_st_action_map(ids))
@@ -65,12 +66,9 @@ class ExceptionHandler:
     def before_enter(
         cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
-        exp_on_reraise = exp
-        self = cls(draw, exp_on_reraise, ids)
+        self = cls(draw, exp, ids)
         exp_on_handle = wrap_exc(GeneratorDidNotYield)
-        self._exc_on_exit_expected = self.expect_outermost_exc(
-            exp_on_reraise, exp_on_handle
-        )
+        self._exc_on_exit_expected = self.expect_outermost_exc(exp_on_handle)
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
 
@@ -78,9 +76,8 @@ class ExceptionHandler:
     def before_raise(
         cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
-        exp_on_reraise = exp
-        self = cls(draw, exp_on_reraise, ids)
-        self._exc_on_exit_expected = self.expect_outermost_exc(exp_on_reraise)
+        self = cls(draw, exp, ids)
+        self._exc_on_exit_expected = self.expect_outermost_exc()
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
 
@@ -95,12 +92,13 @@ class ExceptionHandler:
 
     def expect_outermost_exc(
         self,
-        exp_on_reraise: ExceptionExpectation,
         exp_on_handle: Optional[ExceptionExpectation] = None,
     ) -> ExceptionExpectation:
         # From the innermost to the outermost.
         action_items = reversed(list(self._action_map.values()))
-        return _expect_last_exc(action_items, exp_on_reraise, exp_on_handle)
+        return _expect_last_exc(
+            action_items, exp_on_reraise=self._exp, exp_on_handle=exp_on_handle
+        )
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         self._assert_raised()
