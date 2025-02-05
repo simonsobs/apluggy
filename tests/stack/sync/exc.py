@@ -102,7 +102,7 @@ class ExceptionExpectation:
         raise ValueError(self.method)  # pragma: no cover
 
 
-def wrap_exc(exc: Exception) -> ExceptionExpectation:
+def wrap_exc(exc: Union[Exception, None]) -> ExceptionExpectation:
     method: ExceptionExpectation.Method
     method = 'is' if isinstance(exc, MockException) else 'type-msg'
     return ExceptionExpectation(exc, method=method)
