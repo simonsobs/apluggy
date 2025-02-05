@@ -19,17 +19,15 @@ from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap
 
 @st.composite
 def st_exception_handler_before_enter(
-    draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
+    draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
 ) -> 'ExceptionHandler':
-    exp = wrap_exc(exc)
     return ExceptionHandler.before_enter(draw, exp, ids)
 
 
 @st.composite
 def st_exception_handler_before_raise(
-    draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
+    draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
 ) -> 'ExceptionHandler':
-    exp = wrap_exc(exc)
     return ExceptionHandler.before_raise(draw, exp, ids)
 
 
@@ -185,9 +183,7 @@ def _expect_last_exc(
 
 class ExceptionHandlerBeforeRaise(ExceptionHandler):
     def __init__(self, draw: st.DrawFn) -> None:
-        self._exc_on_exit_expected = ExceptionExpectation(
-            StopIteration(), method='type'
-        )
+        self._exc_on_exit_expected = wrap_exc(StopIteration())
         note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
 
     def handle(self, id: CtxId, exc: Exception) -> None:

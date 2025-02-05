@@ -16,7 +16,7 @@ else:
 
 
 from .ctx_id import ContextIdGenerator, CtxId
-from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException
+from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap_exc
 from .handle import (
     ExceptionHandler,
     st_exception_handler_before_enter,
@@ -102,7 +102,7 @@ class MockContext:
 
         if self._exc_handler is not None:
             self._exc_expected = self._exc_handler._exc_on_exit_expected
-        note(f'{self.__class__.__name__}: {self._exc_expected=}') 
+        note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
@@ -115,8 +115,8 @@ class MockContext:
         self._exc_handler = self._draw(st_exception_handler_before_send())
 
         if self._exc_handler is not None:
-            self._exc_expected = self._exc_handler._exc_on_exit_expected
-        note(f'{self.__class__.__name__}: {self._exc_expected=}') 
+            self._exc_expected = wrap_exc(StopIteration())
+        note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
@@ -128,15 +128,16 @@ class MockContext:
 
     def before_raise(self, exc: Exception) -> None:
         self._clear()
+        exp = wrap_exc(exc)
         self._exc_handler = self._draw(
             st_exception_handler_before_raise(
-                exc=exc, ids=reversed(self._entered_ctx_ids)
+                exp=exp, ids=reversed(self._entered_ctx_ids)
             )
         )
 
         if self._exc_handler is not None:
-            self._exc_expected = self._exc_handler._exc_on_exit_expected
-        note(f'{self.__class__.__name__}: {self._exc_expected=}') 
+            self._exc_expected = self._exc_handler.expect_outermost_exc()
+        note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
 
 @st.composite
@@ -170,9 +171,9 @@ def _st_exception_handler_before_enter(
 
     if last_action_item[0] == 'raise':
         exc = last_action_item[1]
-        return st_exception_handler_before_enter(exc=exc, ids=reversed(ids))
+        exp = wrap_exc(exc)
+        return st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
     elif last_action_item[0] == 'break':
-        return st_exception_handler_before_enter(
-            exc=GeneratorDidNotYield, ids=reversed(ids)
-        )
+        exp = wrap_exc(GeneratorDidNotYield)
+        return st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
     return st.none()
