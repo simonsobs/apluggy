@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from hypothesis import note
 from hypothesis import strategies as st
@@ -162,18 +162,32 @@ def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
 def _st_exception_handler_before_enter(
     action_map: _ActionMap,
 ) -> Union[st.SearchStrategy[ExceptionHandler], st.SearchStrategy[None]]:
-    if not action_map:
+    exp, ids = _expect_exc_and_entered_ctx_ids(action_map)
+    if exp == None:  # noqa: E711
         return st.none()
+    return st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
 
-    *up_to_last, last = action_map.items()
-    ids = [id for id, _ in up_to_last]
-    _, last_action_item = last
+
+def _expect_exc_and_entered_ctx_ids(
+    action_map: _ActionMap,
+) -> tuple[ExceptionExpectation, list[CtxId]]:
+    if not action_map:
+        return ExceptionExpectation(None), []
+
+    last_action_item = list(action_map.values())[-1]
 
     if last_action_item[0] == 'raise':
+        ids = list(action_map.keys())[:-1]
         exc = last_action_item[1]
         exp = wrap_exc(exc)
-        return st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
+        return exp, ids
     elif last_action_item[0] == 'break':
-        exp = wrap_exc(GeneratorDidNotYield)
-        return st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
-    return st.none()
+        ids = list(action_map.keys())[:-1]
+        exc = GeneratorDidNotYield
+        exp = wrap_exc(exc)
+        return exp, ids
+    elif last_action_item[0] == 'yield':
+        ids = list(action_map.keys())
+        return ExceptionExpectation(None), ids
+    else:  # pragma: no cover
+        raise ValueError(f'Unknown action: {last_action_item[0]!r}')
