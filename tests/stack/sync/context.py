@@ -95,9 +95,13 @@ class MockContext:
         self._action_map = self._draw(_draw_actions(self._created_ctx_ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exc_handler = self._draw(
-            _st_exception_handler_before_enter(self._action_map)
-        )
+        exp, ids = _expect_exc_and_entered_ctx_ids(self._action_map)
+        if exp == None:  # noqa: E711
+            self._exc_handler = None
+        else:
+            self._exc_handler = self._draw(
+                st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
+            )
         note(f'{self.__class__.__name__}: {self._exc_handler=}')
 
         if self._exc_handler is not None:
@@ -157,15 +161,6 @@ def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
     if action == 'yield':
         return (action, f'{id}')
     return (action, None)
-
-
-def _st_exception_handler_before_enter(
-    action_map: _ActionMap,
-) -> Union[st.SearchStrategy[ExceptionHandler], st.SearchStrategy[None]]:
-    exp, ids = _expect_exc_and_entered_ctx_ids(action_map)
-    if exp == None:  # noqa: E711
-        return st.none()
-    return st_exception_handler_before_enter(exp=exp, ids=reversed(ids))
 
 
 def _expect_exc_and_entered_ctx_ids(
