@@ -42,7 +42,7 @@ class MockContext:
         self._created_ctx_ids: list[CtxId] = []
         self._entered_ctx_ids: list[CtxId] = []
         self._exiting_ctx_ids: list[CtxId] = []
-        self._exception_handler: Union[ExceptionHandler, None] = None
+        self._exc_handler: Union[ExceptionHandler, None] = None
         self._clear()
 
     def _clear(self) -> None:
@@ -68,8 +68,8 @@ class MockContext:
                         sent = yield action_item[1]
                     except Exception as e:
                         note(f'ctx {id=} except: {e=}')
-                        assert self._exception_handler is not None
-                        self._exception_handler.handle(id, e)
+                        assert self._exc_handler is not None
+                        self._exc_handler.handle(id, e)
                     break
             finally:
                 self._exiting_ctx_ids.append(id)
@@ -92,10 +92,10 @@ class MockContext:
         self._action_map = self._draw(_draw_actions(self._created_ctx_ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exception_handler = self._draw(
+        self._exc_handler = self._draw(
             _st_exception_handler_before_enter(self._action_map)
         )
-        note(f'{self.__class__.__name__}: {self._exception_handler=}')
+        note(f'{self.__class__.__name__}: {self._exc_handler=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
@@ -105,17 +105,17 @@ class MockContext:
     def before_send(self, sent: str) -> None:
         note(f'{MockContext.__name__}: {sent=}')
         self._action_map = {}
-        self._exception_handler = self._draw(st_exception_handler_before_send())
+        self._exc_handler = self._draw(st_exception_handler_before_send())
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
-        if self._exception_handler is None:
+        if self._exc_handler is None:
             assert exc is None
         else:
-            self._exception_handler.assert_on_exited(exc)
+            self._exc_handler.assert_on_exited(exc)
 
     def before_raise(self, exc: Exception) -> None:
-        self._exception_handler = self._draw(
+        self._exc_handler = self._draw(
             st_exception_handler_before_raise(
                 exc=exc, ids=reversed(self._entered_ctx_ids)
             )
