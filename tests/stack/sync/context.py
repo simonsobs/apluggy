@@ -105,7 +105,10 @@ class MockContext:
         note(f'{self.__class__.__name__}: {self._exc_handler=}')
 
         if self._exc_handler is not None:
-            self._exc_expected = self._exc_handler._exc_on_exit_expected
+            exp_on_handle = wrap_exc(GeneratorDidNotYield)
+            self._exc_expected = self._exc_handler.expect_outermost_exc(
+                exp_on_handle=exp_on_handle
+            )
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
