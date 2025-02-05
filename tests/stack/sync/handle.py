@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, MutableMapping
 from typing import Literal, Optional, Union
 
 from hypothesis import note
@@ -29,7 +29,7 @@ _ActionItem: TypeAlias = Union[
     tuple[Literal['handle', 'reraise'], None],
     tuple[Literal['raise'], Exception],
 ]
-_ActionMap: TypeAlias = Mapping[CtxId, _ActionItem]
+_ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
 
@@ -48,7 +48,7 @@ class ExceptionHandler:
 
     def handle(self, id: CtxId, exc: Exception) -> None:
         self._exc_actual.append((id, exc))
-        action_item = self._action_map[id]
+        action_item = self._action_map.pop(id)
         if action_item[0] == 'reraise':
             raise
         if action_item[0] == 'raise':
@@ -66,6 +66,7 @@ class ExceptionHandler:
         )
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
+        assert not self._action_map
         self._assert_raised()
 
     def _assert_raised(self) -> None:
