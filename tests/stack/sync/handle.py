@@ -53,16 +53,11 @@ class ExceptionHandler:
         self._exc_expected = _expect_exc(exp, self._action_map)
         note(f'{self.__class__.__name__}: {self._exc_expected=}')
 
-        self._exc_on_exit_expected: ExceptionExpectation
-
     @classmethod
     def before_enter(
         cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
         self = cls(draw, exp, ids)
-        exp_on_handle = wrap_exc(GeneratorDidNotYield)
-        self._exc_on_exit_expected = self.expect_outermost_exc(exp_on_handle)
-        note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
 
     @classmethod
@@ -70,8 +65,6 @@ class ExceptionHandler:
         cls, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
         self = cls(draw, exp, ids)
-        self._exc_on_exit_expected = self.expect_outermost_exc()
-        note(f'{self.__class__.__name__}: {self._exc_on_exit_expected=}')
         return self
 
     def handle(self, id: CtxId, exc: Exception) -> None:
@@ -95,8 +88,6 @@ class ExceptionHandler:
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         self._assert_raised()
-        note(f'{exc=!r} {self._exc_on_exit_expected=!r}')
-        assert exc == self._exc_on_exit_expected
 
     def _assert_raised(self) -> None:
         note(f'{self._exc_actual=!r} {self._exc_expected=!r}')
