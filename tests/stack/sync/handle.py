@@ -14,7 +14,7 @@ else:
 
 
 from .ctx_id import CtxId
-from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException
+from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap_exc
 
 
 @st.composite
@@ -63,7 +63,7 @@ class ExceptionHandler:
     def before_enter(
         cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
-        exp_on_reraise = _wrap_exc(exc)
+        exp_on_reraise = wrap_exc(exc)
         self = cls(draw, exp_on_reraise, ids)
         exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
         self._exc_on_exit_expected = self.expect_outermost_exc(
@@ -157,7 +157,7 @@ def _expect_exc(
             break
         if action == 'raise':
             assert exc1 is not None
-            exp = _wrap_exc(exc1)
+            exp = wrap_exc(exc1)
 
     # e.g., (
     #     (4, ExceptionExpectation(MockException('0'), method='is')),
@@ -166,12 +166,6 @@ def _expect_exc(
     #     (1, ExceptionExpectation(MockException('2'), method='is')),
     # )
     return tuple(ret)
-
-
-def _wrap_exc(exc: Exception) -> ExceptionExpectation:
-    method: ExceptionExpectation.Method
-    method = 'is' if isinstance(exc, MockException) else 'type-msg'
-    return ExceptionExpectation(exc, method=method)
 
 
 def _expect_last_exc(
