@@ -188,6 +188,6 @@ def _expect_exc_and_entered_ctx_ids(
         return exp, ids
     elif last_action_item[0] == 'yield':
         ids = list(action_map.keys())
-        return ExceptionExpectation(None), ids
+        return wrap_exc(None), ids
     else:  # pragma: no cover
         raise ValueError(f'Unknown action: {last_action_item[0]!r}')
