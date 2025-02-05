@@ -61,10 +61,8 @@ class ExceptionHandler:
     def before_enter(
         cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
+        exp_on_reraise = _wrap_exc(exc)
         self = cls(draw, exc, ids)
-        method: ExceptionExpectation.Method
-        method = 'is' if isinstance(exc, MockException) else 'type-msg'
-        exp_on_reraise = ExceptionExpectation(exc, method=method)
         exp_on_handle = ExceptionExpectation(GeneratorDidNotYield, method='type-msg')
         self._exc_on_exit_expected = _expect_outermost_exc(
             self._action_map, exp_on_reraise, exp_on_handle
@@ -76,8 +74,8 @@ class ExceptionHandler:
     def before_raise(
         cls, draw: st.DrawFn, exc: Exception, ids: Iterable[CtxId]
     ) -> 'ExceptionHandler':
-        self = cls(draw, exc, ids)
         exp_on_reraise = ExceptionExpectation(exc)
+        self = cls(draw, exc, ids)
         self._exc_on_exit_expected = _expect_outermost_exc(
             self._action_map, exp_on_reraise
         )
@@ -145,9 +143,7 @@ def _expect_exc(
 
     ret = list[tuple[CtxId, ExceptionExpectation]]()
     for id, (action, exc1) in action_map.items():
-        method: ExceptionExpectation.Method
-        method = 'is' if isinstance(exc, MockException) else 'type-msg'
-        ret.append((id, ExceptionExpectation(exc, method=method)))
+        ret.append((id, _wrap_exc(exc)))
         if action == 'handle':
             break
         if action == 'raise':
@@ -162,6 +158,10 @@ def _expect_exc(
     # )
     return tuple(ret)
 
+def _wrap_exc(exc: Exception) -> ExceptionExpectation:
+    method: ExceptionExpectation.Method
+    method = 'is' if isinstance(exc, MockException) else 'type-msg'
+    return ExceptionExpectation(exc, method=method)
 
 def _expect_outermost_exc(
     action_map: _ActionMap,
