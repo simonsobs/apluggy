@@ -47,6 +47,7 @@ class MockContext:
 
     def _clear(self) -> None:
         self._action_map: Union[_ActionMap, None] = None
+        self._exc_expected = ExceptionExpectation(None)
 
     def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
@@ -99,11 +100,9 @@ class MockContext:
         )
         note(f'{self.__class__.__name__}: {self._exc_handler=}')
 
-        self._exc_expected = (
-            self._exc_handler._exc_on_exit_expected
-            if self._exc_handler
-            else ExceptionExpectation(None)
-        )
+        if self._exc_handler is not None:
+            self._exc_expected = self._exc_handler._exc_on_exit_expected
+        note(f'{self.__class__.__name__}: {self._exc_expected=}') 
 
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
@@ -112,13 +111,12 @@ class MockContext:
 
     def before_send(self, sent: str) -> None:
         note(f'{MockContext.__name__}: {sent=}')
-        self._action_map = {}
+        self._clear()
         self._exc_handler = self._draw(st_exception_handler_before_send())
-        self._exc_expected = (
-            self._exc_handler._exc_on_exit_expected
-            if self._exc_handler
-            else ExceptionExpectation(None)
-        )
+
+        if self._exc_handler is not None:
+            self._exc_expected = self._exc_handler._exc_on_exit_expected
+        note(f'{self.__class__.__name__}: {self._exc_expected=}') 
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
@@ -129,16 +127,16 @@ class MockContext:
         assert self._exc_expected == exc
 
     def before_raise(self, exc: Exception) -> None:
+        self._clear()
         self._exc_handler = self._draw(
             st_exception_handler_before_raise(
                 exc=exc, ids=reversed(self._entered_ctx_ids)
             )
         )
-        self._exc_expected = (
-            self._exc_handler._exc_on_exit_expected
-            if self._exc_handler
-            else ExceptionExpectation(None)
-        )
+
+        if self._exc_handler is not None:
+            self._exc_expected = self._exc_handler._exc_on_exit_expected
+        note(f'{self.__class__.__name__}: {self._exc_expected=}') 
 
 
 @st.composite
