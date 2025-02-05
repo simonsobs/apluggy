@@ -16,7 +16,7 @@ else:
 
 
 from .ctx_id import ContextIdGenerator, CtxId
-from .exc import GeneratorDidNotYield, MockException
+from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException
 from .handle import (
     ExceptionHandler,
     st_exception_handler_before_enter,
@@ -99,6 +99,12 @@ class MockContext:
         )
         note(f'{self.__class__.__name__}: {self._exc_handler=}')
 
+        self._exc_expected = (
+            self._exc_handler._exc_on_exit_expected
+            if self._exc_handler
+            else ExceptionExpectation(None)
+        )
+
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
         assert self._action_map is not None
@@ -108,6 +114,11 @@ class MockContext:
         note(f'{MockContext.__name__}: {sent=}')
         self._action_map = {}
         self._exc_handler = self._draw(st_exception_handler_before_send())
+        self._exc_expected = (
+            self._exc_handler._exc_on_exit_expected
+            if self._exc_handler
+            else ExceptionExpectation(None)
+        )
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
@@ -115,12 +126,18 @@ class MockContext:
             assert exc is None
         else:
             self._exc_handler.assert_on_exited(exc)
+        assert self._exc_expected == exc
 
     def before_raise(self, exc: Exception) -> None:
         self._exc_handler = self._draw(
             st_exception_handler_before_raise(
                 exc=exc, ids=reversed(self._entered_ctx_ids)
             )
+        )
+        self._exc_expected = (
+            self._exc_handler._exc_on_exit_expected
+            if self._exc_handler
+            else ExceptionExpectation(None)
         )
 
 
