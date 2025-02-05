@@ -61,15 +61,17 @@ class MockContext:
                     action_item = self._action_map[id]
                     if action_item[0] == 'raise':
                         raise action_item[1]
-                    if action_item[0] == 'break':
+                    elif action_item[0] == 'break':
                         break
-                    try:
-                        assert action_item[0] == 'yield'
-                        sent = yield action_item[1]
-                    except Exception as e:
-                        note(f'ctx {id=} except: {e=}')
-                        assert self._exc_handler is not None
-                        self._exc_handler.handle(id, e)
+                    elif action_item[0] == 'yield':
+                        try:
+                            sent = yield action_item[1]
+                        except Exception as e:
+                            note(f'ctx {id=} except: {e=}')
+                            assert self._exc_handler is not None
+                            self._exc_handler.handle(id, e)
+                    else:  # pragma: no cover
+                        raise ValueError(f'Unknown action: {action_item[0]!r}')
                     break
             finally:
                 self._exiting_ctx_ids.append(id)
