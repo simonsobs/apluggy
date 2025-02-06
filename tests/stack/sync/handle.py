@@ -26,7 +26,9 @@ def st_exception_handler(
 
 _ActionName = Literal['handle', 'reraise', 'raise']
 _ActionItem: TypeAlias = Union[
-    tuple[Literal['handle', 'reraise'], None],
+    # tuple[Literal['handle', 'reraise'], None],
+    tuple[Literal['handle'], None],
+    tuple[Literal['reraise'], None],
     tuple[Literal['raise'], Exception],
 ]
 _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
@@ -37,17 +39,19 @@ class ExceptionHandler:
     def __init__(
         self, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
     ) -> None:
+        # The expected exception to be raised in the innermost context.
         self._exp = exp
-        self._exc_actual: list[tuple[CtxId, Exception]] = []
 
         self._action_map = draw(_st_action_map(ids))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._exc_expected = _expect_exc(exp, self._action_map)
-        note(f'{self.__class__.__name__}: {self._exc_expected=}')
+        self._expected = _compose_expected(exp, self._action_map)
+        note(f'{self.__class__.__name__}: {self._expected=}')
+
+        self._actual: list[tuple[CtxId, Exception]] = []
 
     def handle(self, id: CtxId, exc: Exception) -> None:
-        self._exc_actual.append((id, exc))
+        self._actual.append((id, exc))
         action_item = self._action_map.pop(id)
         if action_item[0] == 'reraise':
             raise
@@ -61,6 +65,8 @@ class ExceptionHandler:
     ) -> ExceptionExpectation:
         # From the innermost to the outermost.
         action_items = reversed(list(self._action_map.values()))
+        if exp_on_handle is None:
+            exp_on_handle = wrap_exc(None)
         return _expect_last_exc(
             action_items, exp_on_reraise=self._exp, exp_on_handle=exp_on_handle
         )
@@ -70,12 +76,13 @@ class ExceptionHandler:
         self._assert_raised()
 
     def _assert_raised(self) -> None:
-        note(f'{self._exc_actual=!r} {self._exc_expected=!r}')
-        assert self._exc_actual == list(self._exc_expected)
+        note(f'{self._actual=!r} {self._expected=!r}')
+        assert self._actual == list(self._expected)
 
 
 @st.composite
 def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
+    '''Draw ways to handle exceptions in each context.'''
     # e.g., [4, 3, 2, 1]
     ids = list(ids)
 
@@ -86,25 +93,32 @@ def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
     actions = draw(st_list_until(st_actions, last='handle', max_size=len(ids)))
     note(f'{ExceptionHandler.__name__}: {actions=}')
 
+    def _action_item(id: CtxId, action: _ActionName) -> _ActionItem:
+        if action == 'raise':
+            return ('raise', MockException(f'{id}'))
+        elif action == 'reraise':
+            return ('reraise', None)
+        elif action == 'handle':
+            return ('handle', None)
+        else:  # pragma: no cover
+            raise ValueError(action)
+
     # e.g., {
     #     4: ('reraise', None),
     #     3: ('reraise', None),
     #     2: ('raise', MockException('2')),
     #     1: ('handle', None),
     # }
-    return {id: _create_action_item(id, a) for id, a in zip(ids, actions)}
+    return {id: _action_item(id, a) for id, a in zip(ids, actions)}
 
 
-def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
-    if action == 'raise':
-        return (action, MockException(f'{id}'))
-    return (action, None)
-
-
-def _expect_exc(
+def _compose_expected(
     exp: ExceptionExpectation, action_map: _ActionMap
 ) -> tuple[tuple[CtxId, ExceptionExpectation], ...]:
-    # This method relies on the order of the items in `action_map`.
+    '''Expected exceptions from the innermost to the outermost context.
+
+    This method relies on the order of the items in `action_map`.
+    '''
     # e.g.:
     # exp = ExceptionExpectation(MockException('0'), method='is')
     # action_map = {
@@ -135,12 +149,10 @@ def _expect_exc(
 def _expect_last_exc(
     action_items: Iterable[_ActionItem],
     exp_on_reraise: ExceptionExpectation,
-    exp_on_handle: Optional[ExceptionExpectation] = None,
+    exp_on_handle: ExceptionExpectation,
 ) -> ExceptionExpectation:
     for action, exc1 in action_items:
         if action == 'handle':
-            if exp_on_handle is None:
-                return wrap_exc(None)
             return exp_on_handle
         if action == 'raise':
             return wrap_exc(exc1)
@@ -151,11 +163,14 @@ class ExceptionHandlerNull(ExceptionHandler):
     def __init__(self) -> None:
         pass
 
-    def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
-        pass
-
     def expect_outermost_exc(
         self,
         exp_on_handle: Optional[ExceptionExpectation] = None,
     ) -> ExceptionExpectation:
         return wrap_exc(None)
+
+    def handle(self, id: CtxId, exc: Exception) -> None:
+        assert False  # pragma: no cover
+
+    def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
+        assert True
