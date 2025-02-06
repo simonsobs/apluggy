@@ -144,10 +144,12 @@ def _draw_actions(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
 
 def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
     if action == 'raise':
-        return (action, MockException(f'{id}'))
+        return ('raise', MockException(f'{id}'))
     if action == 'yield':
-        return (action, f'{id}')
-    return (action, None)
+        return ('yield', f'{id}')
+    if action == 'break':
+        return ('break', None)
+    raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
 
 
 def _expect_exc_and_entered_ctx_ids(
