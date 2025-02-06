@@ -86,22 +86,25 @@ class MockContext:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
 
     def before_enter(self) -> None:
+        _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
+        note(_name)
         self._clear()
-        self._action_map = self._draw(_draw_actions(self._created_ctx_ids))
-        note(f'{self.__class__.__name__}: {self._action_map=}')
+        self._action_map = self._draw(
+            _st_action_map(self._created_ctx_ids), label=f'{_name}: _action_map'
+        )
 
         exp, ids = _expect_exc_and_entered_ctx_ids(self._action_map)
         if exp != None:  # noqa: E711
             self._exc_handler = self._draw(
                 st_exception_handler(exp=exp, ids=reversed(ids))
             )
-        note(f'{self.__class__.__name__}: {self._exc_handler=}')
+        note(f'{_name}: {self._exc_handler=}')
 
         exp_on_handle = wrap_exc(GeneratorDidNotYield)
         self._exc_expected = self._exc_handler.expect_outermost_exc(
             exp_on_handle=exp_on_handle
         )
-        note(f'{self.__class__.__name__}: {self._exc_expected=}')
+        note(f'{_name}: {self._exc_expected=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
         assert self._entered_ctx_ids == self._created_ctx_ids
@@ -132,13 +135,12 @@ class MockContext:
 
 
 @st.composite
-def _draw_actions(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
+def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
     ids = list(ids)
     st_actions = st.sampled_from(_ACTIONS)
     actions: list[_ActionName] = draw(
         st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids))
     )
-    note(f'{MockContext.__name__}: {actions=}')
     return {id: _create_action_item(id, a) for id, a in zip(ids, actions)}
 
 
