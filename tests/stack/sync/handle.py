@@ -72,7 +72,7 @@ class ExceptionHandler:
         )
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
-        assert not self._action_map
+        assert not self._action_map, f'{self._action_map=}'
         self._assert_raised()
 
     def _assert_raised(self) -> None:

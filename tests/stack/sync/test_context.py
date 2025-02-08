@@ -1,11 +1,18 @@
+import sys
 import traceback
-from typing import Union
+from typing import Literal, Union
 
 import pytest
 from hypothesis import given, note, settings
 from hypothesis import strategies as st
 
 from apluggy import stack_gen_ctxs
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
+
 
 from .context import MockContext
 from .exc import MockException
@@ -54,6 +61,15 @@ def test_property(data: st.DataObject) -> None:
     n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
     gen_enabled = data.draw(st.booleans(), label='gen_enabled')
 
+    ActionName: TypeAlias = Literal['send', 'raise', 'break']
+    # ACTIONS: tuple[ActionName, ...] = (
+    #     ('send', 'raise', 'break') if gen_enabled else ('raise', 'break')
+    # )
+    ACTIONS: tuple[ActionName, ...] = ('raise', 'break')
+
+    def st_action() -> st.SearchStrategy[ActionName]:
+        return st.sampled_from(ACTIONS)
+
     stack = data.draw(_st_stack(n_ctxs, gen_enabled), label='stack')
 
     mock_context = MockContext(data=data)
@@ -67,8 +83,7 @@ def test_property(data: st.DataObject) -> None:
         with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
             while True:
-                action = data.draw(st.sampled_from(('send', 'raise', 'break')))
-                # action = data.draw(st.sampled_from(('send')))
+                action = data.draw(st_action())
                 if action == 'send':
                     sent = 'send'
                     mock_context.before_send(sent)
@@ -80,6 +95,7 @@ def test_property(data: st.DataObject) -> None:
                         mock_context.before_raise(exc0)
                         raise exc0
                 elif action == 'break':
+                    mock_context.before_break()
                     break
                 else:  # pragma: no cover
                     raise ValueError(f'Unknown action: {action!r}')

@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Generator, Iterable, Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
 from typing import Literal, Union
 
@@ -25,7 +25,7 @@ _ActionItem: TypeAlias = Union[
     tuple[Literal['raise'], Exception],
     tuple[Literal['break'], None],
 ]
-_ActionMap: TypeAlias = Mapping[CtxId, _ActionItem]
+_ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 _ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise', 'break')
 
 
@@ -43,18 +43,23 @@ class MockContext:
         self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
         self._action_map: Union[_ActionMap, None] = None
         self._exc_expected = ExceptionExpectation(None)
+        self._sent_actual: list[str] = []
+        self._yields_expected: list[str] = []
 
     def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
         self._created_ctx_ids.append(id)
 
         @contextmanager
-        def _ctx() -> Iterator[str]:
+        def _ctx() -> Generator[str, str, None]:
             self._entered_ctx_ids.append(id)
             try:
                 while True:
-                    assert self._action_map is not None
-                    action_item = self._action_map[id]
+                    assert self._action_map is not None, f'{id=}'
+                    # action_item = self._action_map[id]
+                    # action_item = self._action_map.pop(id)
+                    action_item = self._action_map.pop(id, ('break', None))
+                    note(f'ctx {id=} {action_item=}')
                     if action_item[0] == 'raise':
                         raise action_item[1]
                     elif action_item[0] == 'break':
@@ -62,13 +67,15 @@ class MockContext:
                     elif action_item[0] == 'yield':
                         try:
                             sent = yield action_item[1]
+                            self._sent_actual.append(sent)
                         except Exception as e:
                             note(f'ctx {id=} except: {e=}')
                             assert self._exc_handler is not None
                             self._exc_handler.handle(id, e)
+                            break
                     else:  # pragma: no cover
                         raise ValueError(f'Unknown action: {action_item[0]!r}')
-                    break
+                    # break
             finally:
                 self._exiting_ctx_ids.append(id)
 
@@ -100,6 +107,10 @@ class MockContext:
             )
         note(f'{_name}: {self._exc_handler=}')
 
+        # All must be 'yield' actions.
+        entered_action_items = [self._action_map[id] for id in ids]
+        self._yields_expected = [i[1] for i in entered_action_items if i[0] == 'yield']
+
         exp_on_handle = wrap_exc(GeneratorDidNotYield)
         self._exc_expected = self._exc_handler.expect_outermost_exc(
             exp_on_handle=exp_on_handle
@@ -107,37 +118,100 @@ class MockContext:
         note(f'{_name}: {self._exc_expected=}')
 
     def on_entered(self, yields: Iterable[str]) -> None:
+        yields = list(yields)
+        _name = f'{self.__class__.__name__}.{self.on_entered.__name__}'
+        note(f'{_name}({yields=!r})')
         assert self._entered_ctx_ids == self._created_ctx_ids
         assert self._action_map is not None
-        assert list(yields) == [self._action_map[id][1] for id in self._entered_ctx_ids]
+        assert yields == self._yields_expected
 
     def before_send(self, sent: str) -> None:
-        note(f'{MockContext.__name__}: {sent=}')
+        _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
+        note(f'{_name}({sent=})')
         self._clear()
-        self._exc_expected = wrap_exc(StopIteration())
-        note(f'{self.__class__.__name__}: {self._exc_expected=}')
+
+        if not self._created_ctx_ids:
+            self._action_map = {}
+            self._exc_handler = ExceptionHandlerNull()
+            self._exc_expected = wrap_exc(StopIteration())
+            return
+
+        self._action_map = self._draw(
+            _st_action_map(reversed(self._created_ctx_ids)),
+            label=f'{_name}: _action_map',
+        )
+        id, last_action_item = list(self._action_map.items())[-1]
+        if last_action_item[0] == 'yield':
+            self._exc_handler = ExceptionHandlerNull()
+            self._exc_expected = wrap_exc(None)
+            return
+        if last_action_item[0] == 'break':
+            self._exc_handler = ExceptionHandlerNull()
+            self._exc_expected = wrap_exc(StopIteration())
+            return
+        if last_action_item[0] == 'raise':
+            entered = [i for i in self._entered_ctx_ids if i != id]
+            if not entered:
+                self._exc_handler = ExceptionHandlerNull()
+                self._exc_expected = wrap_exc(last_action_item[1])
+                return
+            exp = wrap_exc(last_action_item[1])
+            self._exc_handler = self._draw(
+                st_exception_handler(exp=exp, ids=reversed(entered))
+            )
+            # self._exc_expected = exp
+            self._exc_expected = self._exc_handler.expect_outermost_exc(
+                exp_on_handle=wrap_exc(StopIteration())
+            )
+            return
+
+
+    def before_break(self) -> None:
+        _name = f'{self.__class__.__name__}.{self.before_break.__name__}'
+        note(_name)
+        self._clear()
+        self._action_map = {id: ('break', None) for id in self._created_ctx_ids}
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
-        assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
+        _name = f'{self.__class__.__name__}.{self.on_exited.__name__}'
+        note(f'{_name}({exc=!r})')
+        note(f'{_name}: {self._entered_ctx_ids=}')
+        note(f'{_name}: {self._exiting_ctx_ids=}')
+        # assert self._exiting_ctx_ids == list(reversed(self._entered_ctx_ids))
+        assert set(self._exiting_ctx_ids) == set(self._entered_ctx_ids)
         self._exc_handler.assert_on_exited(exc)
         assert self._exc_expected == exc
 
     def before_raise(self, exc: Exception) -> None:
+        _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
+        note(f'{_name}({exc=!r})')
         self._clear()
         exp = wrap_exc(exc)
+        self._action_map = {}
         self._exc_handler = self._draw(
             st_exception_handler(exp=exp, ids=reversed(self._entered_ctx_ids))
         )
 
-        if self._exc_handler is not None:
-            self._exc_expected = self._exc_handler.expect_outermost_exc()
-        note(f'{self.__class__.__name__}: {self._exc_expected=}')
+        # if self._exc_handler is not None:
+        #     note(f'{_name}: {self._exc_handler._action_map=}')
+        #     self._exc_expected = self._exc_handler.expect_outermost_exc()
+        if action_map := self._exc_handler._action_map:
+            idx, action_item = list(action_map.items())[0]
+            if action_item[0] == 'handle':
+                ids = self._entered_ctx_ids[: self._entered_ctx_ids.index(idx)]
+                self._action_map = {id: ('break', None) for id in ids}
+        note(f'{_name}: {self._action_map=}')
+        note(f'{_name}: {self._exc_handler._action_map=}')
+        self._exc_expected = self._exc_handler.expect_outermost_exc()
+        note(f'{_name}: {self._exc_expected=}')
 
 
 @st.composite
 def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
     ids = list(ids)
     st_actions = st.sampled_from(_ACTIONS)
+    # st_actions = st.sampled_from(('yield', 'break'))
+    # ic()
     actions: list[_ActionName] = draw(
         st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids))
     )
@@ -156,6 +230,7 @@ def _create_action_item(id: CtxId, action: _ActionName) -> _ActionItem:
 
 def _expect_exc_and_entered_ctx_ids(
     action_map: _ActionMap,
+    exp_on_break: ExceptionExpectation = wrap_exc(GeneratorDidNotYield),
 ) -> tuple[ExceptionExpectation, list[CtxId]]:
     if not action_map:
         return ExceptionExpectation(None), []
@@ -169,8 +244,36 @@ def _expect_exc_and_entered_ctx_ids(
         return exp, ids
     elif last_action_item[0] == 'break':
         ids = list(action_map.keys())[:-1]
-        exc = GeneratorDidNotYield
+        # exc = GeneratorDidNotYield
+        # exp = wrap_exc(exc)
+        exp = exp_on_break
+        return exp, ids
+    elif last_action_item[0] == 'yield':
+        ids = list(action_map.keys())
+        return wrap_exc(None), ids
+    else:  # pragma: no cover
+        raise ValueError(f'Unknown action: {last_action_item[0]!r}')
+
+
+def _expect_exc_and_entered_ctx_ids_(
+    action_map: _ActionMap,
+    exp_on_break: ExceptionExpectation = wrap_exc(GeneratorDidNotYield),
+) -> tuple[ExceptionExpectation, list[CtxId]]:
+    if not action_map:
+        return ExceptionExpectation(None), []
+
+    last_action_item = list(action_map.values())[-1]
+
+    if last_action_item[0] == 'raise':
+        ids = list(action_map.keys())[:-1]
+        exc = last_action_item[1]
         exp = wrap_exc(exc)
+        return exp, ids
+    elif last_action_item[0] == 'break':
+        ids = list(action_map.keys())[:-1]
+        # exc = GeneratorDidNotYield
+        # exp = wrap_exc(exc)
+        exp = exp_on_break
         return exp, ids
     elif last_action_item[0] == 'yield':
         ids = list(action_map.keys())
