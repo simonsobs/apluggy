@@ -45,6 +45,7 @@ class MockContext:
         self._exc_expected = ExceptionExpectation(None)
         self._sent_actual: list[str] = []
         self._yields_expected: list[str] = []
+        self._to_be_exited = False
 
     def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
@@ -101,15 +102,20 @@ class MockContext:
         )
 
         exp, ids = _expect_exc_and_entered_ctx_ids(self._action_map)
-        if exp != None:  # noqa: E711
-            self._exc_handler = self._draw(
-                st_exception_handler(exp=exp, ids=reversed(ids))
-            )
-        note(f'{_name}: {self._exc_handler=}')
+        if exp == None:  # noqa: E711
+            self._to_be_exited = False
 
-        # All must be 'yield' actions.
-        entered_action_items = [self._action_map[id] for id in ids]
-        self._yields_expected = [i[1] for i in entered_action_items if i[0] == 'yield']
+            # All must be 'yield' actions.
+            entered_action_items = [self._action_map[id] for id in ids]
+            self._yields_expected = [
+                i[1] for i in entered_action_items if i[0] == 'yield'
+            ]
+            return
+
+        self._to_be_exited = True
+
+        self._exc_handler = self._draw(st_exception_handler(exp=exp, ids=reversed(ids)))
+        note(f'{_name}: {self._exc_handler=}')
 
         exp_on_handle = wrap_exc(GeneratorDidNotYield)
         self._exc_expected = self._exc_handler.expect_outermost_exc(
@@ -131,6 +137,7 @@ class MockContext:
         self._clear()
 
         if not self._created_ctx_ids:
+            self._to_be_exited = True
             self._action_map = {}
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(StopIteration())
@@ -142,14 +149,17 @@ class MockContext:
         )
         id, last_action_item = list(self._action_map.items())[-1]
         if last_action_item[0] == 'yield':
+            self._to_be_exited = False
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(None)
             return
         if last_action_item[0] == 'break':
+            self._to_be_exited = True
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(StopIteration())
             return
         if last_action_item[0] == 'raise':
+            self._to_be_exited = True
             entered = [i for i in self._entered_ctx_ids if i != id]
             if not entered:
                 self._exc_handler = ExceptionHandlerNull()
@@ -165,15 +175,18 @@ class MockContext:
             )
             return
 
-
     def before_break(self) -> None:
         _name = f'{self.__class__.__name__}.{self.before_break.__name__}'
         note(_name)
         self._clear()
         self._action_map = {id: ('break', None) for id in self._created_ctx_ids}
 
+    def before_exit(self) -> None:
+        self._to_be_exited = True
+
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         _name = f'{self.__class__.__name__}.{self.on_exited.__name__}'
+        assert self._to_be_exited
         note(f'{_name}({exc=!r})')
         note(f'{_name}: {self._entered_ctx_ids=}')
         note(f'{_name}: {self._exiting_ctx_ids=}')
@@ -186,6 +199,7 @@ class MockContext:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
         note(f'{_name}({exc=!r})')
         self._clear()
+        self._to_be_exited = True
         exp = wrap_exc(exc)
         self._action_map = {}
         self._exc_handler = self._draw(

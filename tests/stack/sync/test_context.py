@@ -30,6 +30,7 @@ def test_one(data: st.DataObject) -> None:
     try:
         with ctx as y:
             mock_context.on_entered(yields=y)
+            mock_context.before_exit()
     except Exception as e:
         exc = e
     mock_context.on_exited(exc=exc)
@@ -50,6 +51,7 @@ def test_raise(data: st.DataObject) -> None:
                 exc0 = MockException('0')
                 mock_context.before_raise(exc0)
                 raise exc0
+            mock_context.before_exit()
     except Exception as e:
         exc = e
     mock_context.on_exited(exc=exc)
@@ -99,6 +101,7 @@ def test_property(data: st.DataObject) -> None:
                     break
                 else:  # pragma: no cover
                     raise ValueError(f'Unknown action: {action!r}')
+            mock_context.before_exit()
     except Exception as e:
         note(traceback.format_exc())
         exc = e
