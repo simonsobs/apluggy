@@ -94,7 +94,6 @@ def test_property(data: st.DataObject) -> None:
                     mock_context.before_raise(exc0)
                     raise exc0
                 elif action == 'break':
-                    mock_context.before_break()
                     break
                 else:  # pragma: no cover
                     raise ValueError(f'Unknown action: {action!r}')

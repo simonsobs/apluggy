@@ -173,13 +173,6 @@ class MockContext:
             )
             return
 
-    def before_break(self) -> None:
-        _name = f'{self.__class__.__name__}.{self.before_break.__name__}'
-        note(_name)
-        self._clear()
-        self._action_map = {id: ('break', None) for id in self._created_ctx_ids}
-        self._exiting_ctx_ids_expected = list(reversed(self._created_ctx_ids))
-
     def before_raise(self, exc: Exception) -> None:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
         note(f'{_name}({exc=!r})')
@@ -199,6 +192,10 @@ class MockContext:
         self._exiting_ctx_ids_expected = list(reversed(self._created_ctx_ids))
 
     def before_exit(self) -> None:
+        _name = f'{self.__class__.__name__}.{self.before_exit.__name__}'
+        note(f'{_name}()')
+        self._clear()
+        self._action_map = {id: ('break', None) for id in self._created_ctx_ids}
         self._to_be_exited = True
         self._exiting_ctx_ids_expected = list(reversed(self._created_ctx_ids))
 
