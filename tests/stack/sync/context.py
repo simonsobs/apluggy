@@ -82,12 +82,6 @@ class MockContext:
         self._ctxs_map[id] = ctx
         return ctx
 
-    @contextmanager
-    def context(self) -> Iterator[None]:
-        # TODO: Delete this method if it's not used.
-        # self._clear()
-        yield
-
     def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
 

@@ -47,11 +47,10 @@ def test_raise(data: st.DataObject) -> None:
     try:
         with ctx as y:
             mock_context.on_entered(yields=y)
-            with mock_context.context():
-                exc0 = MockException('0')
-                mock_context.before_raise(exc0)
-                raise exc0
-            mock_context.before_exit()
+            exc0 = MockException('0')
+            mock_context.before_raise(exc0)
+            raise exc0
+            mock_context.before_exit()  # pragma: no cover
     except Exception as e:
         exc = e
     mock_context.on_exited(exc=exc)
@@ -91,11 +90,9 @@ def test_property(data: st.DataObject) -> None:
                     mock_context.before_send(sent)
                     y = stacked.gen.send(sent)
                 elif action == 'raise':
-                    # if data.draw(st.booleans()):
-                    with mock_context.context():
-                        exc0 = MockException('0')
-                        mock_context.before_raise(exc0)
-                        raise exc0
+                    exc0 = MockException('0')
+                    mock_context.before_raise(exc0)
+                    raise exc0
                 elif action == 'break':
                     mock_context.before_break()
                     break
