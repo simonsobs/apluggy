@@ -221,6 +221,7 @@ class MockContext:
             f'{self._exiting_ctx_ids=}',
             f'{self._exiting_ctx_ids_expected=}',
         )
+        assert not self._action_map, f'{self._action_map=}'
         self._exc_handler.assert_on_exited(exc)
         assert self._exc_expected == exc
 
