@@ -58,8 +58,6 @@ class MockContext:
             try:
                 while True:
                     assert self._action_map is not None, f'{id=}'
-                    # action_item = self._action_map[id]
-                    # action_item = self._action_map.pop(id)
                     action_item = self._action_map.pop(id, ('break', None))
                     note(f'ctx {id=} {action_item=}')
                     if action_item[0] == 'raise':
@@ -77,7 +75,6 @@ class MockContext:
                             break
                     else:  # pragma: no cover
                         raise ValueError(f'Unknown action: {action_item[0]!r}')
-                    # break
             finally:
                 self._exiting_ctx_ids.append(id)
 
@@ -164,12 +161,10 @@ class MockContext:
             *list(reversed([i for i in self._created_ctx_ids if i != id])),
         ]
         if last_action_item[0] == 'break':
-            # self._to_be_exited = True
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(StopIteration())
             return
         if last_action_item[0] == 'raise':
-            # self._to_be_exited = True
             entered = [i for i in self._entered_ctx_ids if i != id]
             if not entered:
                 self._exc_handler = ExceptionHandlerNull()
