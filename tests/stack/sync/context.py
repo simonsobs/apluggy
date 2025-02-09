@@ -120,10 +120,10 @@ class MockContext:
         )
         exp = wrap_exc(exc)
 
-        entered_ctx_ids = list(self._action_map.keys())[:-1]
+        suspended_ctx_ids = list(self._action_map.keys())[:-1]
 
         self._exc_handler = self._draw(
-            st_exception_handler(exp=exp, ids=reversed(entered_ctx_ids))
+            st_exception_handler(exp=exp, ids=reversed(suspended_ctx_ids))
         )
         note(f'{_name}: {self._exc_handler=}')
 
@@ -149,7 +149,6 @@ class MockContext:
 
         if not self._created_ctx_ids:
             self._to_be_exited = True
-            self._action_map = {}
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(StopIteration())
             self._exiting_ctx_ids_expected = []
@@ -161,33 +160,33 @@ class MockContext:
         )
         id, last_action_item = list(self._action_map.items())[-1]
         if last_action_item[0] == 'yield':
-            self._to_be_exited = False
-            self._exc_handler = ExceptionHandlerNull()
-            self._exc_expected = wrap_exc(None)
+            # TODO: self._yields_expected = ...
             return
+
+        assert last_action_item[0] in {'raise', 'break'}
         self._to_be_exited = True
-        self._exiting_ctx_ids_expected = [
-            id,
-            *list(reversed([i for i in self._created_ctx_ids if i != id])),
-        ]
+        suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
+        self._exiting_ctx_ids_expected = [id, *list(reversed(suspended_ctx_ids))]
+
         if last_action_item[0] == 'break':
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(StopIteration())
-            return
-        if last_action_item[0] == 'raise':
-            entered = [i for i in self._entered_ctx_ids if i != id]
-            if not entered:
+        elif last_action_item[0] == 'raise':
+            if not suspended_ctx_ids:
                 self._exc_handler = ExceptionHandlerNull()
                 self._exc_expected = wrap_exc(last_action_item[1])
-                return
-            exp = wrap_exc(last_action_item[1])
-            self._exc_handler = self._draw(
-                st_exception_handler(exp=exp, ids=reversed(entered))
-            )
-            self._exc_expected = self._exc_handler.expect_outermost_exc(
-                exp_on_handle=wrap_exc(StopIteration())
-            )
-            return
+            else:
+                exp = wrap_exc(last_action_item[1])
+                self._exc_handler = self._draw(
+                    st_exception_handler(exp=exp, ids=reversed(suspended_ctx_ids))
+                )
+                self._exc_expected = self._exc_handler.expect_outermost_exc(
+                    exp_on_handle=wrap_exc(StopIteration())
+                )
+        else:  # pragma: no cover
+            raise ValueError(f'Unknown action: {last_action_item[0]!r}')
+        note(f'{_name}: {self._exc_handler=}')
+        note(f'{_name}: {self._exc_expected=}')
 
     def before_raise(self, exc: Exception) -> None:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
