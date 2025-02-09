@@ -255,7 +255,7 @@ def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
         if action == 'raise':
             return ('raise', MockException(f'{id}'))
         if action == 'yield':
-            return ('yield', f'{id}')
+            return ('yield', f'yield-{id}')
         if action == 'break':
             return ('break', None)
         raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover

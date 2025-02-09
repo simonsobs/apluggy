@@ -30,7 +30,7 @@ def test_one(data: st.DataObject) -> None:
     exc: Union[Exception, None] = None
     try:
         with ctx as y:
-            mock_context.on_entered(yields=y)
+            mock_context.on_entered(yields=[y])
             mock_context.before_exit()
     except Exception as e:
         exc = e
@@ -47,7 +47,7 @@ def test_raise(data: st.DataObject) -> None:
     exc: Union[Exception, None] = None
     try:
         with ctx as y:
-            mock_context.on_entered(yields=y)
+            mock_context.on_entered(yields=[y])
             exc0 = MockException('0')
             mock_context.before_raise(exc0)
             raise exc0
