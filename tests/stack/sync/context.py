@@ -87,28 +87,44 @@ class MockContext:
 
     def before_enter(self) -> None:
         _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
-        note(_name)
+        note(f'{_name}()')
         self._clear()
+
+        if not self._created_ctx_ids:
+            self._yields_expected = []
+            return
+
         self._action_map = self._draw(
             _st_action_map(self._created_ctx_ids), label=f'{_name}: _action_map'
         )
 
-        exp, ids = _expect_exc_and_entered_ctx_ids(self._action_map)
-        if exp == None:  # noqa: E711
-            self._to_be_exited = False
-
-            # All must be 'yield' actions.
-            entered_action_items = [self._action_map[id] for id in ids]
+        last_action_item = list(self._action_map.values())[-1]
+        if last_action_item[0] == 'yield':
+            # All actions are `yield` when the last action is `yield`.
+            # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
             self._yields_expected = [
-                i[1] for i in entered_action_items if i[0] == 'yield'
+                e[1] for e in self._action_map.values() if e[0] == 'yield'
             ]
+            note(f'{_name}: {self._yields_expected=}')
             return
 
+        assert last_action_item[0] in {'raise', 'break'}
         self._to_be_exited = True
         self._exiting_ctx_ids_expected = list(reversed(list(self._action_map.keys())))
         note(f'{_name}: {self._exiting_ctx_ids_expected=}')
 
-        self._exc_handler = self._draw(st_exception_handler(exp=exp, ids=reversed(ids)))
+        exc = (
+            last_action_item[1]
+            if last_action_item[0] == 'raise'
+            else GeneratorDidNotYield  # last_action_item[0] == 'break'
+        )
+        exp = wrap_exc(exc)
+
+        entered_ctx_ids = list(self._action_map.keys())[:-1]
+
+        self._exc_handler = self._draw(
+            st_exception_handler(exp=exp, ids=reversed(entered_ctx_ids))
+        )
         note(f'{_name}: {self._exc_handler=}')
 
         exp_on_handle = wrap_exc(GeneratorDidNotYield)
@@ -123,7 +139,7 @@ class MockContext:
         note(f'{_name}({yields=!r})')
         assert not self._to_be_exited
         assert self._entered_ctx_ids == self._created_ctx_ids
-        assert self._action_map is not None
+        assert not self._action_map
         assert yields == self._yields_expected
 
     def before_send(self, sent: str) -> None:
@@ -230,28 +246,3 @@ def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
         raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
 
     return {id: _action_item(id, a) for id, a in zip(ids, actions)}
-
-
-def _expect_exc_and_entered_ctx_ids(
-    action_map: _ActionMap,
-) -> tuple[ExceptionExpectation, list[CtxId]]:
-    if not action_map:
-        return ExceptionExpectation(None), []
-
-    last_action_item = list(action_map.values())[-1]
-
-    if last_action_item[0] == 'raise':
-        ids = list(action_map.keys())[:-1]
-        exc = last_action_item[1]
-        exp = wrap_exc(exc)
-        return exp, ids
-    elif last_action_item[0] == 'break':
-        ids = list(action_map.keys())[:-1]
-        exc = GeneratorDidNotYield
-        exp = wrap_exc(exc)
-        return exp, ids
-    elif last_action_item[0] == 'yield':
-        ids = list(action_map.keys())
-        return wrap_exc(None), ids
-    else:  # pragma: no cover
-        raise ValueError(f'Unknown action: {last_action_item[0]!r}')
