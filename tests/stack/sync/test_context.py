@@ -89,6 +89,7 @@ def test_property(data: st.DataObject) -> None:
                     sent = 'send'
                     mock_context.before_send(sent)
                     y = stacked.gen.send(sent)
+                    mock_context.on_sent(iter(y))
                 elif action == 'raise':
                     exc0 = MockException('0')
                     mock_context.before_raise(exc0)

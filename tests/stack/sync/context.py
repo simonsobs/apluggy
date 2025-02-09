@@ -160,7 +160,12 @@ class MockContext:
         )
         id, last_action_item = list(self._action_map.items())[-1]
         if last_action_item[0] == 'yield':
-            # TODO: self._yields_expected = ...
+            # All actions are `yield` when the last action is `yield`.
+            # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
+            self._yields_expected = [
+                e[1] for e in self._action_map.values() if e[0] == 'yield'
+            ]
+            note(f'{_name}: {self._yields_expected=}')
             return
 
         assert last_action_item[0] in {'raise', 'break'}
@@ -187,6 +192,14 @@ class MockContext:
             raise ValueError(f'Unknown action: {last_action_item[0]!r}')
         note(f'{_name}: {self._exc_handler=}')
         note(f'{_name}: {self._exc_expected=}')
+
+    def on_sent(self, yields: Iterable[str]) -> None:
+        yields = list(yields)
+        _name = f'{self.__class__.__name__}.{self.on_sent.__name__}'
+        note(f'{_name}({yields=!r})')
+        assert not self._to_be_exited
+        assert not self._action_map
+        assert yields == self._yields_expected
 
     def before_raise(self, exc: Exception) -> None:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
