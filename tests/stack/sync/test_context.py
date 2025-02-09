@@ -1,5 +1,6 @@
 import sys
 import traceback
+from itertools import count
 from typing import Literal, Union
 
 import pytest
@@ -83,10 +84,10 @@ def test_property(data: st.DataObject) -> None:
     try:
         with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
-            while True:
+            for i in count():
                 action = data.draw(st_action())
                 if action == 'send':
-                    sent = 'send'
+                    sent = f'sent-{i}'
                     mock_context.before_send(sent)
                     y = stacked.gen.send(sent)
                     mock_context.on_sent(iter(y))

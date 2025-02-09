@@ -43,6 +43,7 @@ class MockContext:
         self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
         self._action_map: Union[_ActionMap, None] = None
         self._exc_expected = ExceptionExpectation(None)
+        self._sent_expected: list[str] = []
         self._sent_actual: list[str] = []
         self._yields_expected: list[str] = []
         self._to_be_exited = False
@@ -160,6 +161,7 @@ class MockContext:
         )
         id, last_action_item = list(self._action_map.items())[-1]
         if last_action_item[0] == 'yield':
+            self._sent_expected = [sent] * len(self._created_ctx_ids)
             # All actions are `yield` when the last action is `yield`.
             # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
             self._yields_expected = [
@@ -199,6 +201,7 @@ class MockContext:
         note(f'{_name}({yields=!r})')
         assert not self._to_be_exited
         assert not self._action_map
+        assert self._sent_actual == self._sent_expected
         assert yields == self._yields_expected
 
     def before_raise(self, exc: Exception) -> None:
