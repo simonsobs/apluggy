@@ -19,7 +19,7 @@ from .exc import MockException
 from .refs import Stack, dunder_enter, exit_stack, nested_with
 
 
-@settings(max_examples=500)
+@settings(max_examples=2000)
 @given(data=st.data())
 def test_property(data: st.DataObject) -> None:
     n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
