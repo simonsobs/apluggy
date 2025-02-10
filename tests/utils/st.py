@@ -2,7 +2,8 @@ import inspect
 import sys
 from collections import deque
 from collections.abc import Callable
-from typing import Generic, Optional, TypeVar
+from itertools import count
+from typing import Generic, Optional, TypeVar, Union
 
 from hypothesis import strategies as st
 
@@ -10,6 +11,8 @@ if sys.version_info >= (3, 10):
     from typing import ParamSpec
 else:
     from typing_extensions import ParamSpec
+
+from .iteration import take_until
 
 P = ParamSpec('P')
 T = TypeVar('T')
@@ -23,6 +26,29 @@ def st_none_or(st_: st.SearchStrategy[T]) -> st.SearchStrategy[Optional[T]]:
     True
     '''
     return st.one_of(st.none(), st_)
+
+
+@st.composite
+def st_list_until(
+    draw: st.DrawFn,
+    st_: st.SearchStrategy[T],
+    /,
+    *,
+    last: Union[T, set[T]],
+    max_size: Optional[int] = None,
+) -> list[T]:
+    '''A strategy for lists from `st_` that ends with `last` or an item in `last`.'''
+    counts = range(max_size) if max_size is not None else count()
+    gen = (draw(st_) for _ in counts)
+
+    def _cond(x: T) -> bool:
+        if x == last:
+            return True
+        if isinstance(last, set):
+            return x in last
+        return False
+
+    return list(take_until(_cond, gen))
 
 
 class RecordReturns(Generic[P, T]):
