@@ -45,7 +45,7 @@ def test_property(data: st.DataObject) -> None:
     try:
         with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
-            for i in count():
+            for i in count():  # pragma: no branch
                 action = data.draw(st_action())
                 if action == 'send':
                     sent = f'sent-{i}'
