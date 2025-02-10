@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Generator, Iterable, Iterator, Mapping, MutableMapping
+from collections.abc import Generator, Iterable, MutableMapping
 from contextlib import contextmanager
 from typing import Literal, Union
 

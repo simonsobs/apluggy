@@ -3,7 +3,6 @@ import traceback
 from itertools import count
 from typing import Literal, Union
 
-import pytest
 from hypothesis import given, note, settings
 from hypothesis import strategies as st
 
@@ -20,43 +19,6 @@ from .exc import MockException
 from .refs import Stack, dunder_enter, exit_stack, nested_with
 
 
-@given(data=st.data())
-def test_one(data: st.DataObject) -> None:
-    mock_context = MockContext(data=data)
-
-    ctx = mock_context()
-    mock_context.assert_created([ctx])
-    mock_context.before_enter()
-    exc: Union[Exception, None] = None
-    try:
-        with ctx as y:
-            mock_context.on_entered(yields=[y])
-            mock_context.before_exit()
-    except Exception as e:
-        exc = e
-    mock_context.on_exited(exc=exc)
-
-
-@given(data=st.data())
-def test_raise(data: st.DataObject) -> None:
-    mock_context = MockContext(data=data)
-
-    ctx = mock_context()
-    mock_context.assert_created([ctx])
-    mock_context.before_enter()
-    exc: Union[Exception, None] = None
-    try:
-        with ctx as y:
-            mock_context.on_entered(yields=[y])
-            exc0 = MockException('0')
-            mock_context.before_raise(exc0)
-            raise exc0
-            mock_context.before_exit()  # pragma: no cover
-    except Exception as e:
-        exc = e
-    mock_context.on_exited(exc=exc)
-
-
 @settings(max_examples=500)
 @given(data=st.data())
 def test_property(data: st.DataObject) -> None:
@@ -64,10 +26,9 @@ def test_property(data: st.DataObject) -> None:
     gen_enabled = data.draw(st.booleans(), label='gen_enabled')
 
     ActionName: TypeAlias = Literal['send', 'raise', 'break']
-    # ACTIONS: tuple[ActionName, ...] = (
-    #     ('send', 'raise', 'break') if gen_enabled else ('raise', 'break')
-    # )
-    ACTIONS: tuple[ActionName, ...] = ('raise', 'break')
+    ACTIONS: tuple[ActionName, ...] = (
+        ('send', 'raise', 'break') if gen_enabled else ('raise', 'break')
+    )
 
     def st_action() -> st.SearchStrategy[ActionName]:
         return st.sampled_from(ACTIONS)
@@ -115,18 +76,3 @@ def _st_stack(n_ctxs: int, gen_enabled: bool) -> st.SearchStrategy[Stack]:
     if not gen_enabled:
         stacks.append(exit_stack)
     return st.sampled_from(stacks)
-
-
-@pytest.mark.skip
-def test_scratch() -> None:
-    from collections.abc import Iterator
-    from contextlib import contextmanager
-
-    @contextmanager
-    def _ctx() -> Iterator[None]:
-        raise MockException('0')
-        if False:
-            yield
-
-    with _ctx():
-        pass
