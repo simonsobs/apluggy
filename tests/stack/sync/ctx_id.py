@@ -8,7 +8,7 @@ CtxId = NewType('CtxId', int)
 def ContextIdGenerator() -> Callable[[], CtxId]:
     '''Return a function that returns a new `_CtxId` each time it is called.
 
-    >>> gen = _ContextIdGenerator()
+    >>> gen = ContextIdGenerator()
     >>> id1 = gen()
     >>> id2 = gen()
     >>> id1 is id2
