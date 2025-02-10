@@ -220,3 +220,6 @@ async def dunder_enter_triple(  # noqa: C901
                 raise
             if not await ctx0.__aexit__(*sys.exc_info()):
                 raise
+        else:
+            if ctx0 in entered:
+                await ctx0.__aexit__(None, None, None)
