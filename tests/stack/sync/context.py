@@ -160,7 +160,12 @@ class MockContext:
         assert not self._action_map
         assert yields == self._yields_expected
 
-    def before_send(self, sent: str) -> None:
+    def before_send(
+        self,
+        sent: str,
+        enabled_actions: Sequence[CtxActionName] = CTX_ACTIONS,
+        enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
+    ) -> None:
         _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
         note(f'{_name}({sent=})')
         self._clear()
@@ -173,7 +178,9 @@ class MockContext:
             return
 
         self._action_map = self._draw(
-            _st_action_map(reversed(self._created_ctx_ids)),
+            _st_action_map(
+                reversed(self._created_ctx_ids), enabled_actions=enabled_actions
+            ),
             label=f'{_name}: _action_map',
         )
         id, last_action_item = list(self._action_map.items())[-1]
@@ -202,7 +209,11 @@ class MockContext:
             else:
                 exp = wrap_exc(last_action_item[1])
                 self._exc_handler = self._draw(
-                    st_exception_handler(exp=exp, ids=reversed(suspended_ctx_ids))
+                    st_exception_handler(
+                        exp=exp,
+                        ids=reversed(suspended_ctx_ids),
+                        enabled_actions=enabled_except_actions,
+                    )
                 )
                 self._exc_expected = self._exc_handler.expect_outermost_exc(
                     exp_on_handle=wrap_exc(StopIteration())
