@@ -1,6 +1,5 @@
 import sys
 import traceback
-from itertools import count
 from typing import Literal, Union
 
 from hypothesis import given, note, settings
@@ -22,6 +21,8 @@ from .refs import Stack, dunder_enter, exit_stack, nested_with
 @settings(max_examples=2000)
 @given(data=st.data())
 def test_property(data: st.DataObject) -> None:
+    MAX_N_SENDS = 5
+
     n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
     gen_enabled = data.draw(st.booleans(), label='gen_enabled')
 
@@ -45,7 +46,7 @@ def test_property(data: st.DataObject) -> None:
     try:
         with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
-            for i in count():  # pragma: no branch
+            for i in range(MAX_N_SENDS):
                 action = data.draw(st_action())
                 if action == 'send':
                     sent = f'sent-{i}'
