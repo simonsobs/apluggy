@@ -1,9 +1,7 @@
 from functools import partial
-from os import getenv
 
 from hypothesis import Phase, given, settings
 from hypothesis import strategies as st
-from pytest import mark
 
 from apluggy import async_stack_gen_ctxs
 from tests.utils import RecordReturns, ReplayReturns
@@ -12,7 +10,6 @@ from .refs import dunder_enter
 from .runner import run
 
 
-@mark.skipif(getenv('GITHUB_ACTIONS') == 'true', reason='Fails on GitHub Actions')
 @given(st.data())
 @settings(max_examples=200, phases=(Phase.generate,))  # Avoid shrinking
 async def test_imp(data: st.DataObject):

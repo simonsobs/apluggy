@@ -1,9 +1,7 @@
 from functools import partial
-from os import getenv
 
 from hypothesis import Phase, given, settings
 from hypothesis import strategies as st
-from pytest import mark
 
 from tests.utils import RecordReturns, ReplayReturns
 
@@ -11,7 +9,6 @@ from .refs import dunder_enter, exit_stack, nested_with
 from .runner import run
 
 
-@mark.skipif(getenv('GITHUB_ACTIONS') == 'true', reason='Fails on GitHub Actions')
 @given(st.data())
 @settings(max_examples=200, phases=(Phase.generate,))  # Avoid shrinking
 async def test_refs(data: st.DataObject):
