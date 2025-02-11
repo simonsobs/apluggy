@@ -221,20 +221,30 @@ class MockContext:
         assert self._sent_actual == self._sent_expected
         assert yields == self._yields_expected
 
-    def before_raise(self, exc: Exception) -> None:
+    def before_raise(
+        self,
+        exc: Exception,
+        enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
+    ) -> None:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
         note(f'{_name}({exc=!r})')
         self._clear()
         self._to_be_exited = True
         exp = wrap_exc(exc)
-        self._action_map = {}
         self._exc_handler = self._draw(
-            st_exception_handler(exp=exp, ids=reversed(self._entered_ctx_ids))
+            st_exception_handler(
+                exp=exp,
+                ids=reversed(self._entered_ctx_ids),
+                enabled_actions=enabled_except_actions,
+            )
         )
 
+        self._action_map = {}
+
         note(f'{_name}: {self._action_map=}')
-        note(f'{_name}: {self._exc_handler._action_map=}')
         self._exc_expected = self._exc_handler.expect_outermost_exc()
+
+        note(f'{_name}: {self._exc_handler=}')
         note(f'{_name}: {self._exc_expected=}')
 
         self._exiting_ctx_ids_expected = list(reversed(self._created_ctx_ids))
