@@ -1,5 +1,6 @@
 import sys
 import traceback
+from collections.abc import Sequence
 from typing import Literal, Union
 
 from hypothesis import given, note, settings
@@ -13,23 +14,35 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .context import MockContext
-from .exc import MockException
+from .context import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext, MockException
 from .refs import Stack, dunder_enter, exit_stack, nested_with
 
 
 @settings(max_examples=2000)
 @given(data=st.data())
 def test_property(data: st.DataObject) -> None:
-    MAX_N_SENDS = 5
+    MAX_N_CTXS = 5
+    GEN_ENABLED = True
 
-    n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
-    gen_enabled = data.draw(st.booleans(), label='gen_enabled')
+    MAX_N_SENDS = 4
+
+    ENABLED_CTX_ACTIONS_ON_ENTER = CTX_ACTIONS
+    ENABLED_EXCEPT_ACTIONS_ON_ENTER = EXCEPT_ACTIONS
+
+    ENABLED_CTX_ACTIONS_ON_SENT = CTX_ACTIONS
+    ENABLED_EXCEPT_ACTIONS_ON_SENT = EXCEPT_ACTIONS
+
+    ENABLED_EXCEPT_ACTIONS_ON_RAISED = EXCEPT_ACTIONS
+
+    n_ctxs = data.draw(st.integers(min_value=0, max_value=MAX_N_CTXS), label='n_ctxs')
+    gen_enabled = data.draw(
+        st.booleans() if GEN_ENABLED else st.just(False), label='gen_enabled'
+    )
 
     ActionName: TypeAlias = Literal['send', 'raise', 'break']
-    ACTIONS: tuple[ActionName, ...] = (
-        ('send', 'raise', 'break') if gen_enabled else ('raise', 'break')
-    )
+    ACTIONS: Sequence[ActionName] = ('send', 'raise', 'break')
+    if not gen_enabled:
+        ACTIONS = tuple(a for a in ACTIONS if a != 'send')
 
     def st_action() -> st.SearchStrategy[ActionName]:
         return st.sampled_from(ACTIONS)
@@ -41,7 +54,10 @@ def test_property(data: st.DataObject) -> None:
 
     mock_context.assert_created(iter(ctxs))  # `iter()` to test with an iterable.
 
-    mock_context.before_enter()
+    mock_context.before_enter(
+        enabled_actions=ENABLED_CTX_ACTIONS_ON_ENTER,
+        enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_ENTER,
+    )
     exc: Union[Exception, None] = None
     try:
         with (stacked := stack(iter(ctxs))) as y:
@@ -50,12 +66,18 @@ def test_property(data: st.DataObject) -> None:
                 action = data.draw(st_action())
                 if action == 'send':
                     sent = f'sent-{i}'
-                    mock_context.before_send(sent)
+                    mock_context.before_send(
+                        sent,
+                        enabled_actions=ENABLED_CTX_ACTIONS_ON_SENT,
+                        enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_SENT,
+                    )
                     y = stacked.gen.send(sent)
                     mock_context.on_sent(iter(y))
                 elif action == 'raise':
                     exc0 = MockException('0')
-                    mock_context.before_raise(exc0)
+                    mock_context.before_raise(
+                        exc0, enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_RAISED
+                    )
                     raise exc0
                 elif action == 'break':
                     break
