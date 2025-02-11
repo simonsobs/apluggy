@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, MutableMapping, Sequence
 from typing import Literal, Optional, Union
 
 from hypothesis import note
@@ -16,14 +16,6 @@ else:
 from .ctx_id import CtxId
 from .exc import ExceptionExpectation, MockException, wrap_exc
 
-
-@st.composite
-def st_exception_handler(
-    draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
-) -> 'ExceptionHandler':
-    return ExceptionHandler(draw, exp, ids)
-
-
 _ActionName = Literal['handle', 'reraise', 'raise']
 _ActionItem: TypeAlias = Union[
     # tuple[Literal['handle', 'reraise'], None],
@@ -35,14 +27,28 @@ _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 _ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
 
+@st.composite
+def st_exception_handler(
+    draw: st.DrawFn,
+    exp: ExceptionExpectation,
+    ids: Iterable[CtxId],
+    enabled_actions: Sequence[_ActionName] = _ACTIONS,
+) -> 'ExceptionHandler':
+    return ExceptionHandler(draw, exp, ids, enabled_actions)
+
+
 class ExceptionHandler:
     def __init__(
-        self, draw: st.DrawFn, exp: ExceptionExpectation, ids: Iterable[CtxId]
+        self,
+        draw: st.DrawFn,
+        exp: ExceptionExpectation,
+        ids: Iterable[CtxId],
+        enabled_actions: Sequence[_ActionName],
     ) -> None:
         # The expected exception to be raised in the innermost context.
         self._exp = exp
 
-        self._action_map = draw(_st_action_map(ids))
+        self._action_map = draw(_st_action_map(ids, enabled_actions))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
         self._expected = _compose_expected(exp, self._action_map)
@@ -81,12 +87,16 @@ class ExceptionHandler:
 
 
 @st.composite
-def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
+def _st_action_map(
+    draw: st.DrawFn,
+    ids: Iterable[CtxId],
+    enabled_actions: Sequence[_ActionName],
+) -> _ActionMap:
     '''Draw ways to handle exceptions in each context.'''
     # e.g., [4, 3, 2, 1]
     ids = list(ids)
 
-    st_actions = st.sampled_from(_ACTIONS)
+    st_actions = st.sampled_from(enabled_actions)
 
     # e.g., ['reraise', 'reraise', 'raise', 'handle']
     actions: list[_ActionName]
