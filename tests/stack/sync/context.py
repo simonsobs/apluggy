@@ -25,14 +25,16 @@ from .handle import (
     st_exception_handler,
 )
 
-_ActionName = Literal['yield', 'raise', 'break']
+CtxActionName = Literal['yield', 'raise', 'break']
+CTX_ACTIONS: Sequence[CtxActionName] = ('yield', 'raise', 'break')
+
+
 _ActionItem: TypeAlias = Union[
     tuple[Literal['yield'], str],
     tuple[Literal['raise'], Exception],
     tuple[Literal['break'], None],
 ]
 _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
-_ACTIONS: tuple[_ActionName, ...] = ('yield', 'raise', 'break')
 
 
 class MockContext:
@@ -93,7 +95,9 @@ class MockContext:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
 
     def before_enter(
-        self, enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS
+        self,
+        enabled_actions: Sequence[CtxActionName] = CTX_ACTIONS,
+        enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
     ) -> None:
         _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
         note(f'{_name}()')
@@ -104,7 +108,8 @@ class MockContext:
             return
 
         self._action_map = self._draw(
-            _st_action_map(self._created_ctx_ids), label=f'{_name}: _action_map'
+            _st_action_map(self._created_ctx_ids, enabled_actions=enabled_actions),
+            label=f'{_name}: _action_map',
         )
 
         last_action_item = list(self._action_map.values())[-1]
@@ -256,14 +261,18 @@ class MockContext:
 
 
 @st.composite
-def _st_action_map(draw: st.DrawFn, ids: Iterable[CtxId]) -> _ActionMap:
+def _st_action_map(
+    draw: st.DrawFn,
+    ids: Iterable[CtxId],
+    enabled_actions: Sequence[CtxActionName] = CTX_ACTIONS,
+) -> _ActionMap:
     ids = list(ids)
-    st_actions = st.sampled_from(_ACTIONS)
-    actions: list[_ActionName] = draw(
+    st_actions = st.sampled_from(enabled_actions)
+    actions: list[CtxActionName] = draw(
         st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids))
     )
 
-    def _action_item(id: CtxId, action: _ActionName) -> _ActionItem:
+    def _action_item(id: CtxId, action: CtxActionName) -> _ActionItem:
         if action == 'raise':
             return ('raise', MockException(f'{id}'))
         if action == 'yield':
