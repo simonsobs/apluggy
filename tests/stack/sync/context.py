@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Generator, Iterable, MutableMapping
+from collections.abc import Generator, Iterable, MutableMapping, Sequence
 from contextlib import contextmanager
 from typing import Literal, Union
 
@@ -17,7 +17,13 @@ else:
 
 from .ctx_id import ContextIdGenerator, CtxId
 from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap_exc
-from .handle import ExceptionHandler, ExceptionHandlerNull, st_exception_handler
+from .handle import (
+    EXCEPT_ACTIONS,
+    ExceptActionName,
+    ExceptionHandler,
+    ExceptionHandlerNull,
+    st_exception_handler,
+)
 
 _ActionName = Literal['yield', 'raise', 'break']
 _ActionItem: TypeAlias = Union[
@@ -86,7 +92,9 @@ class MockContext:
     def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
 
-    def before_enter(self) -> None:
+    def before_enter(
+        self, enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS
+    ) -> None:
         _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
         note(f'{_name}()')
         self._clear()
@@ -124,7 +132,11 @@ class MockContext:
         suspended_ctx_ids = list(self._action_map.keys())[:-1]
 
         self._exc_handler = self._draw(
-            st_exception_handler(exp=exp, ids=reversed(suspended_ctx_ids))
+            st_exception_handler(
+                exp=exp,
+                ids=reversed(suspended_ctx_ids),
+                enabled_actions=enabled_except_actions,
+            )
         )
         note(f'{_name}: {self._exc_handler=}')
 

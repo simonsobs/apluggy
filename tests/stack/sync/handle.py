@@ -16,15 +16,16 @@ else:
 from .ctx_id import CtxId
 from .exc import ExceptionExpectation, MockException, wrap_exc
 
-_ActionName = Literal['handle', 'reraise', 'raise']
+ExceptActionName = Literal['handle', 'reraise', 'raise']
+EXCEPT_ACTIONS: Sequence[ExceptActionName] = ('handle', 'reraise', 'raise')
+
+
 _ActionItem: TypeAlias = Union[
-    # tuple[Literal['handle', 'reraise'], None],
     tuple[Literal['handle'], None],
     tuple[Literal['reraise'], None],
     tuple[Literal['raise'], Exception],
 ]
 _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
-_ACTIONS: tuple[_ActionName, ...] = ('handle', 'reraise', 'raise')
 
 
 @st.composite
@@ -32,7 +33,7 @@ def st_exception_handler(
     draw: st.DrawFn,
     exp: ExceptionExpectation,
     ids: Iterable[CtxId],
-    enabled_actions: Sequence[_ActionName] = _ACTIONS,
+    enabled_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
 ) -> 'ExceptionHandler':
     return ExceptionHandler(draw, exp, ids, enabled_actions)
 
@@ -43,7 +44,7 @@ class ExceptionHandler:
         draw: st.DrawFn,
         exp: ExceptionExpectation,
         ids: Iterable[CtxId],
-        enabled_actions: Sequence[_ActionName],
+        enabled_actions: Sequence[ExceptActionName],
     ) -> None:
         # The expected exception to be raised in the innermost context.
         self._exp = exp
@@ -90,7 +91,7 @@ class ExceptionHandler:
 def _st_action_map(
     draw: st.DrawFn,
     ids: Iterable[CtxId],
-    enabled_actions: Sequence[_ActionName],
+    enabled_actions: Sequence[ExceptActionName],
 ) -> _ActionMap:
     '''Draw ways to handle exceptions in each context.'''
     # e.g., [4, 3, 2, 1]
@@ -99,11 +100,11 @@ def _st_action_map(
     st_actions = st.sampled_from(enabled_actions)
 
     # e.g., ['reraise', 'reraise', 'raise', 'handle']
-    actions: list[_ActionName]
+    actions: list[ExceptActionName]
     actions = draw(st_list_until(st_actions, last='handle', max_size=len(ids)))
     note(f'{ExceptionHandler.__name__}: {actions=}')
 
-    def _action_item(id: CtxId, action: _ActionName) -> _ActionItem:
+    def _action_item(id: CtxId, action: ExceptActionName) -> _ActionItem:
         if action == 'raise':
             return ('raise', MockException(f'{id}'))
         elif action == 'reraise':
