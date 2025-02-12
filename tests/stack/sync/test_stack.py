@@ -38,18 +38,16 @@ def test_property(data: st.DataObject) -> None:
     ENABLED_EXIT_ACTIONS = EXIT_ACTIONS
     ENABLED_EXCEPT_ACTIONS_ON_RAISED = EXCEPT_ACTIONS
 
+    #
     n_ctxs = data.draw(st.integers(min_value=0, max_value=MAX_N_CTXS), label='n_ctxs')
     gen_enabled = data.draw(
-        st.booleans() if GEN_ENABLED else st.just(False), label='gen_enabled'
+        st.booleans() if GEN_ENABLED else st.just(False),
+        label='gen_enabled',
     )
-
-    ActionName: TypeAlias = Literal['send', 'break']
-    ACTIONS: Sequence[ActionName] = ('send', 'break')
-    if not gen_enabled:
-        ACTIONS = tuple(a for a in ACTIONS if a != 'send')
-
-    def st_action() -> st.SearchStrategy[ActionName]:
-        return st.sampled_from(ACTIONS)
+    n_sends = data.draw(
+        st.integers(min_value=0, max_value=MAX_N_SENDS) if gen_enabled else st.just(0),
+        label='n_sends',
+    )
 
     def st_exit_action() -> st.SearchStrategy[ExitActionName]:
         return st.sampled_from(ENABLED_EXIT_ACTIONS)
@@ -69,22 +67,19 @@ def test_property(data: st.DataObject) -> None:
     try:
         with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
-            for i in range(MAX_N_SENDS):
-                action = data.draw(st_action())
-                if action == 'send':
-                    sent = f'sent-{i}'
-                    mock_context.before_send(
-                        sent,
-                        enabled_actions=ENABLED_CTX_ACTIONS_ON_SENT,
-                        enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_SENT,
-                    )
-                    y = stacked.gen.send(sent)
-                    mock_context.on_sent(iter(y))
-                elif action == 'break':
-                    break
-                else:  # pragma: no cover
-                    raise ValueError(f'Unknown action: {action!r}')
 
+            #
+            for i in range(n_sends):
+                sent = f'sent-{i}'
+                mock_context.before_send(
+                    sent,
+                    enabled_actions=ENABLED_CTX_ACTIONS_ON_SENT,
+                    enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_SENT,
+                )
+                y = stacked.gen.send(sent)
+                mock_context.on_sent(iter(y))
+
+            #
             exit_action = data.draw(st_exit_action())
             if exit_action == 'raise':
                 exc_raised = MockException('raised')
