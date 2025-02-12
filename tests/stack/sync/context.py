@@ -81,7 +81,7 @@ class MockContext:
             self._entered_ctx_ids.append(id)
             try:
                 while True:
-                    assert self._action_map is not None, f'{id=}'
+                    assert self._action_map is not None
                     action_item = self._action_map.pop(id, ('break', None))
                     note(f'ctx {id=} {action_item=}')
                     if action_item[0] == 'raise':
@@ -278,13 +278,11 @@ class MockContext:
         _name = f'{self.__class__.__name__}.{self.on_exited.__name__}'
         assert self._to_be_exited
         note(f'{_name}({exc=!r})')
-        assert self._exiting_ctx_ids == self._exiting_ctx_ids_expected, (
-            f'{self._exiting_ctx_ids=}',
-            f'{self._exiting_ctx_ids_expected=}',
-        )
-        assert not self._action_map, f'{self._action_map=}'
+        assert self._exiting_ctx_ids == self._exiting_ctx_ids_expected
+        assert not self._action_map
         self._exc_handler.assert_on_exited(exc)
         assert self._exc_expected == exc
+        self._exit_handler.assert_on_exited(exc)
 
 
 @st.composite
