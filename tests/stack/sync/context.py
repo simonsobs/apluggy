@@ -94,7 +94,7 @@ class MockContext:
 
     def _clear(self) -> None:
         self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
-        self._action_map: Union[_ActionMap, None] = None
+        self._ctx_action_map: Union[_ActionMap, None] = None
         self._sent_expected: list[str] = []
         self._sent_actual: list[str] = []
         self._yields_expected: list[str] = []
@@ -109,8 +109,8 @@ class MockContext:
             self._entered_ctx_ids.append(id)
             try:
                 while True:
-                    assert self._action_map is not None
-                    action_item = self._action_map.pop(id, ('break', None))
+                    assert self._ctx_action_map is not None
+                    action_item = self._ctx_action_map.pop(id, ('break', None))
                     note(f'ctx {id=} {action_item=}')
                     if action_item[0] == 'raise':
                         raise action_item[1]
@@ -146,20 +146,20 @@ class MockContext:
             self._yields_expected = []
             return
 
-        self._action_map = self._draw(
-            _st_action_map(
+        self._ctx_action_map = self._draw(
+            _st_ctx_action_map(
                 self._created_ctx_ids,
                 enabled_actions=self._enabled_ctx_actions_on_enter,
             ),
-            label=f'{_name}: _action_map',
+            label=f'{_name}: _ctx_action_map',
         )
 
-        last_action_item = list(self._action_map.values())[-1]
+        last_action_item = list(self._ctx_action_map.values())[-1]
         if last_action_item[0] == 'yield':
             # All actions are `yield` when the last action is `yield`.
             # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
             self._yields_expected = [
-                e[1] for e in self._action_map.values() if e[0] == 'yield'
+                e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
             ]
             note(f'{_name}: {self._yields_expected=}')
             return
@@ -173,7 +173,7 @@ class MockContext:
         )
         exp = wrap_exc(exc)
 
-        suspended_ctx_ids = list(self._action_map.keys())[:-1]
+        suspended_ctx_ids = list(self._ctx_action_map.keys())[:-1]
 
         self._exc_handler = self._draw(
             st_exception_handler(
@@ -190,7 +190,8 @@ class MockContext:
         )
 
         self._exit_handler.expect_to_exit(
-            ctx_ids=reversed(list(self._action_map.keys())), exc_expected=exc_expected
+            ctx_ids=reversed(list(self._ctx_action_map.keys())),
+            exc_expected=exc_expected,
         )
 
     def on_entered(self, yields: Iterable[str]) -> None:
@@ -199,7 +200,7 @@ class MockContext:
         note(f'{_name}({yields=!r})')
         self._exit_handler.assert_on_entered()
         assert self._entered_ctx_ids == self._created_ctx_ids
-        assert not self._action_map
+        assert not self._ctx_action_map
         assert yields == self._yields_expected
 
     def before_send(self, sent: str) -> None:
@@ -213,20 +214,20 @@ class MockContext:
             self._exit_handler.expect_to_exit(ctx_ids=[], exc_expected=exc_expected)
             return
 
-        self._action_map = self._draw(
-            _st_action_map(
+        self._ctx_action_map = self._draw(
+            _st_ctx_action_map(
                 reversed(self._created_ctx_ids),
                 enabled_actions=self._enabled_ctx_actions_on_sent,
             ),
-            label=f'{_name}: _action_map',
+            label=f'{_name}: _ctx_action_map',
         )
-        id, last_action_item = list(self._action_map.items())[-1]
+        id, last_action_item = list(self._ctx_action_map.items())[-1]
         if last_action_item[0] == 'yield':
             self._sent_expected = [sent] * len(self._created_ctx_ids)
             # All actions are `yield` when the last action is `yield`.
             # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
             self._yields_expected = [
-                e[1] for e in self._action_map.values() if e[0] == 'yield'
+                e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
             ]
             note(f'{_name}: {self._yields_expected=}')
             return
@@ -234,30 +235,30 @@ class MockContext:
         assert last_action_item[0] in {'raise', 'break'}
         suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
 
+        exc_handler: ExceptionHandler
         if last_action_item[0] == 'break':
-            self._exc_handler = ExceptionHandlerNull()
+            exc_handler = ExceptionHandlerNull()
             exc_expected = wrap_exc(StopIteration())
         elif last_action_item[0] == 'raise':
             if not suspended_ctx_ids:
-                self._exc_handler = ExceptionHandlerNull()
+                exc_handler = ExceptionHandlerNull()
                 exc_expected = wrap_exc(last_action_item[1])
             else:
                 exp = wrap_exc(last_action_item[1])
-                self._exc_handler = self._draw(
+                exc_handler = self._draw(
                     st_exception_handler(
                         exp=exp,
                         ids=reversed(suspended_ctx_ids),
                         enabled_actions=self._enabled_except_actions_on_sent,
                     )
                 )
-                exc_expected = self._exc_handler.expect_outermost_exc(
+                exc_expected = exc_handler.expect_outermost_exc(
                     exp_on_handle=wrap_exc(StopIteration())
                 )
         else:  # pragma: no cover
             raise ValueError(f'Unknown action: {last_action_item[0]!r}')
 
-        note(f'{_name}: {self._exc_handler=}')
-
+        self._exc_handler = exc_handler
         self._exit_handler.expect_to_exit(
             ctx_ids=[id, *reversed(suspended_ctx_ids)], exc_expected=exc_expected
         )
@@ -267,7 +268,7 @@ class MockContext:
         _name = f'{self.__class__.__name__}.{self.on_sent.__name__}'
         note(f'{_name}({yields=!r})')
         self._exit_handler.assert_on_sent()
-        assert not self._action_map
+        assert not self._ctx_action_map
         assert self._sent_actual == self._sent_expected
         assert yields == self._yields_expected
 
@@ -275,21 +276,18 @@ class MockContext:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
         note(f'{_name}({exc=!r})')
         self._clear()
-        exp = wrap_exc(exc)
+
         self._exc_handler = self._draw(
             st_exception_handler(
-                exp=exp,
+                exp=wrap_exc(exc),
                 ids=reversed(self._entered_ctx_ids),
                 enabled_actions=self._enabled_except_actions_on_raised,
             )
         )
 
-        self._action_map = {}
+        self._ctx_action_map = {}
 
-        note(f'{_name}: {self._action_map=}')
         exc_expected = self._exc_handler.expect_outermost_exc()
-
-        note(f'{_name}: {self._exc_handler=}')
 
         self._exit_handler.expect_to_exit(
             ctx_ids=reversed(self._created_ctx_ids), exc_expected=exc_expected
@@ -299,22 +297,22 @@ class MockContext:
         _name = f'{self.__class__.__name__}.{self.before_exit.__name__}'
         note(f'{_name}()')
         self._clear()
-        self._action_map = {id: ('break', None) for id in self._created_ctx_ids}
+
+        self._ctx_action_map = {id: ('break', None) for id in self._created_ctx_ids}
         self._exit_handler.expect_to_exit(reversed(self._created_ctx_ids))
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         _name = f'{self.__class__.__name__}.{self.on_exited.__name__}'
         note(f'{_name}({exc=!r})')
-        assert not self._action_map
+
+        assert not self._ctx_action_map
         self._exc_handler.assert_on_exited(exc)
         self._exit_handler.assert_on_exited(exc)
 
 
 @st.composite
-def _st_action_map(
-    draw: st.DrawFn,
-    ids: Iterable[CtxId],
-    enabled_actions: Sequence[CtxActionName] = CTX_ACTIONS,
+def _st_ctx_action_map(
+    draw: st.DrawFn, ids: Iterable[CtxId], enabled_actions: Sequence[CtxActionName]
 ) -> _ActionMap:
     ids = list(ids)
     st_actions = st.sampled_from(enabled_actions)
