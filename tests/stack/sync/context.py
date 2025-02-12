@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Generator, Iterable, MutableMapping, Sequence
 from contextlib import contextmanager
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from hypothesis import note
 from hypothesis import strategies as st
@@ -40,12 +40,15 @@ _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 class ExitHandler:
     def __init__(self) -> None:
         self._to_be_exited = False
+        self._exiting_ctx_ids: list[CtxId] = []
+        self._exiting_ctx_ids_expected: list[CtxId] = []
 
-    def expect_to_exit(self) -> None:
+    def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
         self._to_be_exited = True
+        self._exiting_ctx_ids_expected = list(ctx_ids)
 
     def on_exiting(self, id: CtxId) -> None:
-        pass
+        self._exiting_ctx_ids.append(id)
 
     def assert_on_entered(self) -> None:
         assert not self._to_be_exited
@@ -55,6 +58,7 @@ class ExitHandler:
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._to_be_exited
+        assert self._exiting_ctx_ids == self._exiting_ctx_ids_expected
 
 
 class MockContext:
@@ -79,7 +83,6 @@ class MockContext:
 
         self._created_ctx_ids: list[CtxId] = []
         self._entered_ctx_ids: list[CtxId] = []
-        self._exiting_ctx_ids: list[CtxId] = []
         self._clear()
 
     def _clear(self) -> None:
@@ -89,7 +92,6 @@ class MockContext:
         self._sent_expected: list[str] = []
         self._sent_actual: list[str] = []
         self._yields_expected: list[str] = []
-        self._exiting_ctx_ids_expected: list[CtxId] = []
         self._exit_handler = ExitHandler()
 
     def __call__(self) -> GenCtxMngr[str]:
@@ -120,7 +122,6 @@ class MockContext:
                     else:  # pragma: no cover
                         raise ValueError(f'Unknown action: {action_item[0]!r}')
             finally:
-                self._exiting_ctx_ids.append(id)
                 self._exit_handler.on_exiting(id)
 
         ctx = _ctx()
@@ -158,9 +159,9 @@ class MockContext:
             return
 
         assert last_action_item[0] in {'raise', 'break'}
-        self._exit_handler.expect_to_exit()
-        self._exiting_ctx_ids_expected = list(reversed(list(self._action_map.keys())))
-        note(f'{_name}: {self._exiting_ctx_ids_expected=}')
+        self._exit_handler.expect_to_exit(
+            ctx_ids=reversed(list(self._action_map.keys()))
+        )
 
         exc = (
             last_action_item[1]
@@ -201,10 +202,9 @@ class MockContext:
         self._clear()
 
         if not self._created_ctx_ids:
-            self._exit_handler.expect_to_exit()
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(StopIteration())
-            self._exiting_ctx_ids_expected = []
+            self._exit_handler.expect_to_exit(ctx_ids=[])
             return
 
         self._action_map = self._draw(
@@ -226,9 +226,8 @@ class MockContext:
             return
 
         assert last_action_item[0] in {'raise', 'break'}
-        self._exit_handler.expect_to_exit()
         suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
-        self._exiting_ctx_ids_expected = [id, *list(reversed(suspended_ctx_ids))]
+        self._exit_handler.expect_to_exit(ctx_ids=[id, *reversed(suspended_ctx_ids)])
 
         if last_action_item[0] == 'break':
             self._exc_handler = ExceptionHandlerNull()
@@ -267,7 +266,6 @@ class MockContext:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
         note(f'{_name}({exc=!r})')
         self._clear()
-        self._exit_handler.expect_to_exit()
         exp = wrap_exc(exc)
         self._exc_handler = self._draw(
             st_exception_handler(
@@ -285,20 +283,18 @@ class MockContext:
         note(f'{_name}: {self._exc_handler=}')
         note(f'{_name}: {self._exc_expected=}')
 
-        self._exiting_ctx_ids_expected = list(reversed(self._created_ctx_ids))
+        self._exit_handler.expect_to_exit(ctx_ids=reversed(self._created_ctx_ids))
 
     def before_exit(self) -> None:
         _name = f'{self.__class__.__name__}.{self.before_exit.__name__}'
         note(f'{_name}()')
         self._clear()
         self._action_map = {id: ('break', None) for id in self._created_ctx_ids}
-        self._exit_handler.expect_to_exit()
-        self._exiting_ctx_ids_expected = list(reversed(self._created_ctx_ids))
+        self._exit_handler.expect_to_exit(reversed(self._created_ctx_ids))
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         _name = f'{self.__class__.__name__}.{self.on_exited.__name__}'
         note(f'{_name}({exc=!r})')
-        assert self._exiting_ctx_ids == self._exiting_ctx_ids_expected
         assert not self._action_map
         self._exc_handler.assert_on_exited(exc)
         assert self._exc_expected == exc
