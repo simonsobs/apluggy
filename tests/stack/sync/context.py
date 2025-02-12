@@ -42,15 +42,16 @@ class ExitHandler:
         self._to_be_exited = False
         self._ctx_ids: list[CtxId] = []
 
-    def expect_to_exit(
-        self,
-        ctx_ids: Iterable[CtxId],
-        exc_expected: Union[ExceptionExpectation, None] = None,
+    def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
+        self._to_be_exited = True
+        self._ctx_ids_expected = list(ctx_ids)
+        self._exc_expected = wrap_exc(None)
+
+    def expect_to_exit_on_error(
+        self, ctx_ids: Iterable[CtxId], exc_expected: ExceptionExpectation
     ) -> None:
         self._to_be_exited = True
         self._ctx_ids_expected = list(ctx_ids)
-        if exc_expected is None:
-            exc_expected = wrap_exc(None)
         self._exc_expected = exc_expected
 
     def on_exiting(self, ctx_id: CtxId) -> None:
@@ -189,7 +190,7 @@ class MockContext:
             exp_on_handle=exp_on_handle
         )
 
-        self._exit_handler.expect_to_exit(
+        self._exit_handler.expect_to_exit_on_error(
             ctx_ids=reversed(list(self._ctx_action_map.keys())),
             exc_expected=exc_expected,
         )
@@ -211,7 +212,9 @@ class MockContext:
         if not self._created_ctx_ids:
             self._exc_handler = ExceptionHandlerNull()
             exc_expected = wrap_exc(StopIteration())
-            self._exit_handler.expect_to_exit(ctx_ids=[], exc_expected=exc_expected)
+            self._exit_handler.expect_to_exit_on_error(
+                ctx_ids=[], exc_expected=exc_expected
+            )
             return
 
         self._ctx_action_map = self._draw(
@@ -259,7 +262,7 @@ class MockContext:
             raise ValueError(f'Unknown action: {last_action_item[0]!r}')
 
         self._exc_handler = exc_handler
-        self._exit_handler.expect_to_exit(
+        self._exit_handler.expect_to_exit_on_error(
             ctx_ids=[id, *reversed(suspended_ctx_ids)], exc_expected=exc_expected
         )
 
@@ -289,7 +292,7 @@ class MockContext:
 
         exc_expected = self._exc_handler.expect_outermost_exc()
 
-        self._exit_handler.expect_to_exit(
+        self._exit_handler.expect_to_exit_on_error(
             ctx_ids=reversed(self._created_ctx_ids), exc_expected=exc_expected
         )
 
