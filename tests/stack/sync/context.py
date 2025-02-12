@@ -165,9 +165,6 @@ class MockContext:
             return
 
         assert last_action_item[0] in {'raise', 'break'}
-        self._exit_handler.expect_to_exit(
-            ctx_ids=reversed(list(self._action_map.keys()))
-        )
 
         exc = (
             last_action_item[1]
@@ -236,7 +233,6 @@ class MockContext:
 
         assert last_action_item[0] in {'raise', 'break'}
         suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
-        # self._exit_handler.expect_to_exit(ctx_ids=[id, *reversed(suspended_ctx_ids)])
 
         if last_action_item[0] == 'break':
             self._exc_handler = ExceptionHandlerNull()
