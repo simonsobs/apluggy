@@ -40,15 +40,14 @@ _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 class ExitHandler:
     def __init__(self) -> None:
         self._to_be_exited = False
-        self._exiting_ctx_ids: list[CtxId] = []
-        self._exiting_ctx_ids_expected: list[CtxId] = []
+        self._ctx_ids: list[CtxId] = []
 
     def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
         self._to_be_exited = True
-        self._exiting_ctx_ids_expected = list(ctx_ids)
+        self._ctx_ids_expected = list(ctx_ids)
 
-    def on_exiting(self, id: CtxId) -> None:
-        self._exiting_ctx_ids.append(id)
+    def on_exiting(self, ctx_id: CtxId) -> None:
+        self._ctx_ids.append(ctx_id)
 
     def assert_on_entered(self) -> None:
         assert not self._to_be_exited
@@ -58,7 +57,7 @@ class ExitHandler:
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._to_be_exited
-        assert self._exiting_ctx_ids == self._exiting_ctx_ids_expected
+        assert self._ctx_ids == self._ctx_ids_expected
 
 
 class MockContext:
