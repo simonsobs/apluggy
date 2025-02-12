@@ -38,10 +38,25 @@ _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 
 
 class MockContext:
-    def __init__(self, data: st.DataObject) -> None:
+    def __init__(
+        self,
+        data: st.DataObject,
+        enabled_ctx_actions_on_enter: Sequence[CtxActionName] = CTX_ACTIONS,
+        enabled_except_actions_on_enter: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
+        enabled_ctx_actions_on_sent: Sequence[CtxActionName] = CTX_ACTIONS,
+        enabled_except_actions_on_sent: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
+        enabled_except_actions_on_raised: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
+    ) -> None:
         self._draw = data.draw
+        self._enabled_ctx_actions_on_enter = enabled_ctx_actions_on_enter
+        self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
+        self._enabled_ctx_actions_on_sent = enabled_ctx_actions_on_sent
+        self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
+        self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
+
         self._generate_ctx_id = ContextIdGenerator()
         self._ctxs_map: dict[CtxId, GenCtxMngr] = {}
+
         self._created_ctx_ids: list[CtxId] = []
         self._entered_ctx_ids: list[CtxId] = []
         self._exiting_ctx_ids: list[CtxId] = []
@@ -94,11 +109,7 @@ class MockContext:
     def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
 
-    def before_enter(
-        self,
-        enabled_actions: Sequence[CtxActionName] = CTX_ACTIONS,
-        enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
-    ) -> None:
+    def before_enter(self) -> None:
         _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
         note(f'{_name}()')
         self._clear()
@@ -108,7 +119,10 @@ class MockContext:
             return
 
         self._action_map = self._draw(
-            _st_action_map(self._created_ctx_ids, enabled_actions=enabled_actions),
+            _st_action_map(
+                self._created_ctx_ids,
+                enabled_actions=self._enabled_ctx_actions_on_enter,
+            ),
             label=f'{_name}: _action_map',
         )
 
@@ -140,7 +154,7 @@ class MockContext:
             st_exception_handler(
                 exp=exp,
                 ids=reversed(suspended_ctx_ids),
-                enabled_actions=enabled_except_actions,
+                enabled_actions=self._enabled_except_actions_on_enter,
             )
         )
         note(f'{_name}: {self._exc_handler=}')
@@ -160,12 +174,7 @@ class MockContext:
         assert not self._action_map
         assert yields == self._yields_expected
 
-    def before_send(
-        self,
-        sent: str,
-        enabled_actions: Sequence[CtxActionName] = CTX_ACTIONS,
-        enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
-    ) -> None:
+    def before_send(self, sent: str) -> None:
         _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
         note(f'{_name}({sent=})')
         self._clear()
@@ -179,7 +188,8 @@ class MockContext:
 
         self._action_map = self._draw(
             _st_action_map(
-                reversed(self._created_ctx_ids), enabled_actions=enabled_actions
+                reversed(self._created_ctx_ids),
+                enabled_actions=self._enabled_ctx_actions_on_sent,
             ),
             label=f'{_name}: _action_map',
         )
@@ -212,7 +222,7 @@ class MockContext:
                     st_exception_handler(
                         exp=exp,
                         ids=reversed(suspended_ctx_ids),
-                        enabled_actions=enabled_except_actions,
+                        enabled_actions=self._enabled_except_actions_on_sent,
                     )
                 )
                 self._exc_expected = self._exc_handler.expect_outermost_exc(
@@ -232,11 +242,7 @@ class MockContext:
         assert self._sent_actual == self._sent_expected
         assert yields == self._yields_expected
 
-    def before_raise(
-        self,
-        exc: Exception,
-        enabled_except_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
-    ) -> None:
+    def before_raise(self, exc: Exception) -> None:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
         note(f'{_name}({exc=!r})')
         self._clear()
@@ -246,7 +252,7 @@ class MockContext:
             st_exception_handler(
                 exp=exp,
                 ids=reversed(self._entered_ctx_ids),
-                enabled_actions=enabled_except_actions,
+                enabled_actions=self._enabled_except_actions_on_raised,
             )
         )
 

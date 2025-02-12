@@ -54,15 +54,19 @@ def test_property(data: st.DataObject) -> None:
 
     stack = data.draw(_st_stack(n_ctxs, gen_enabled), label='stack')
 
-    mock_context = MockContext(data=data)
+    mock_context = MockContext(
+        data=data,
+        enabled_ctx_actions_on_enter=ENABLED_CTX_ACTIONS_ON_ENTER,
+        enabled_except_actions_on_enter=ENABLED_EXCEPT_ACTIONS_ON_ENTER,
+        enabled_ctx_actions_on_sent=ENABLED_CTX_ACTIONS_ON_SENT,
+        enabled_except_actions_on_sent=ENABLED_EXCEPT_ACTIONS_ON_SENT,
+        enabled_except_actions_on_raised=ENABLED_EXCEPT_ACTIONS_ON_RAISED,
+    )
     ctxs = [mock_context() for _ in range(n_ctxs)]
 
     mock_context.assert_created(iter(ctxs))  # `iter()` to test with an iterable.
 
-    mock_context.before_enter(
-        enabled_actions=ENABLED_CTX_ACTIONS_ON_ENTER,
-        enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_ENTER,
-    )
+    mock_context.before_enter()
     exc: Union[Exception, None] = None
     try:
         with (stacked := stack(iter(ctxs))) as y:
@@ -71,11 +75,7 @@ def test_property(data: st.DataObject) -> None:
             #
             for i in range(n_sends):
                 sent = f'sent-{i}'
-                mock_context.before_send(
-                    sent,
-                    enabled_actions=ENABLED_CTX_ACTIONS_ON_SENT,
-                    enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_SENT,
-                )
+                mock_context.before_send(sent)
                 y = stacked.gen.send(sent)
                 mock_context.on_sent(iter(y))
 
@@ -83,9 +83,7 @@ def test_property(data: st.DataObject) -> None:
             exit_action = data.draw(st_exit_action())
             if exit_action == 'raise':
                 exc_raised = MockException('raised')
-                mock_context.before_raise(
-                    exc_raised, enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_RAISED
-                )
+                mock_context.before_raise(exc_raised)
                 raise exc_raised
             elif exit_action == 'exit':
                 mock_context.before_exit()
