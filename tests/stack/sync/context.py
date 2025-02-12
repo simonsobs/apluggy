@@ -37,6 +37,26 @@ _ActionItem: TypeAlias = Union[
 _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 
 
+class ExitHandler:
+    def __init__(self) -> None:
+        self._to_be_exited = False
+
+    def expect_to_exit(self) -> None:
+        self._to_be_exited = True
+
+    def on_exiting(self, id: CtxId) -> None:
+        pass
+
+    def assert_on_entered(self) -> None:
+        assert not self._to_be_exited
+
+    def assert_on_sent(self) -> None:
+        assert not self._to_be_exited
+
+    def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
+        assert self._to_be_exited
+
+
 class MockContext:
     def __init__(
         self,
@@ -69,8 +89,8 @@ class MockContext:
         self._sent_expected: list[str] = []
         self._sent_actual: list[str] = []
         self._yields_expected: list[str] = []
-        self._to_be_exited = False
         self._exiting_ctx_ids_expected: list[CtxId] = []
+        self._exit_handler = ExitHandler()
 
     def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
@@ -101,6 +121,7 @@ class MockContext:
                         raise ValueError(f'Unknown action: {action_item[0]!r}')
             finally:
                 self._exiting_ctx_ids.append(id)
+                self._exit_handler.on_exiting(id)
 
         ctx = _ctx()
         self._ctxs_map[id] = ctx
@@ -137,7 +158,7 @@ class MockContext:
             return
 
         assert last_action_item[0] in {'raise', 'break'}
-        self._to_be_exited = True
+        self._exit_handler.expect_to_exit()
         self._exiting_ctx_ids_expected = list(reversed(list(self._action_map.keys())))
         note(f'{_name}: {self._exiting_ctx_ids_expected=}')
 
@@ -169,7 +190,7 @@ class MockContext:
         yields = list(yields)
         _name = f'{self.__class__.__name__}.{self.on_entered.__name__}'
         note(f'{_name}({yields=!r})')
-        assert not self._to_be_exited
+        self._exit_handler.assert_on_entered()
         assert self._entered_ctx_ids == self._created_ctx_ids
         assert not self._action_map
         assert yields == self._yields_expected
@@ -180,7 +201,7 @@ class MockContext:
         self._clear()
 
         if not self._created_ctx_ids:
-            self._to_be_exited = True
+            self._exit_handler.expect_to_exit()
             self._exc_handler = ExceptionHandlerNull()
             self._exc_expected = wrap_exc(StopIteration())
             self._exiting_ctx_ids_expected = []
@@ -205,7 +226,7 @@ class MockContext:
             return
 
         assert last_action_item[0] in {'raise', 'break'}
-        self._to_be_exited = True
+        self._exit_handler.expect_to_exit()
         suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
         self._exiting_ctx_ids_expected = [id, *list(reversed(suspended_ctx_ids))]
 
@@ -237,7 +258,7 @@ class MockContext:
         yields = list(yields)
         _name = f'{self.__class__.__name__}.{self.on_sent.__name__}'
         note(f'{_name}({yields=!r})')
-        assert not self._to_be_exited
+        self._exit_handler.assert_on_sent()
         assert not self._action_map
         assert self._sent_actual == self._sent_expected
         assert yields == self._yields_expected
@@ -246,7 +267,7 @@ class MockContext:
         _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
         note(f'{_name}({exc=!r})')
         self._clear()
-        self._to_be_exited = True
+        self._exit_handler.expect_to_exit()
         exp = wrap_exc(exc)
         self._exc_handler = self._draw(
             st_exception_handler(
@@ -271,12 +292,11 @@ class MockContext:
         note(f'{_name}()')
         self._clear()
         self._action_map = {id: ('break', None) for id in self._created_ctx_ids}
-        self._to_be_exited = True
+        self._exit_handler.expect_to_exit()
         self._exiting_ctx_ids_expected = list(reversed(self._created_ctx_ids))
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
         _name = f'{self.__class__.__name__}.{self.on_exited.__name__}'
-        assert self._to_be_exited
         note(f'{_name}({exc=!r})')
         assert self._exiting_ctx_ids == self._exiting_ctx_ids_expected
         assert not self._action_map
