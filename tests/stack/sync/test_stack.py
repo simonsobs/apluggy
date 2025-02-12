@@ -17,6 +17,9 @@ else:
 from .context import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext, MockException
 from .refs import Stack, dunder_enter, exit_stack, nested_with
 
+ExitActionName: TypeAlias = Literal['exit', 'raise']
+EXIT_ACTIONS: Sequence[ExitActionName] = ('exit', 'raise')
+
 
 @settings(max_examples=2000)
 @given(data=st.data())
@@ -32,6 +35,7 @@ def test_property(data: st.DataObject) -> None:
     ENABLED_CTX_ACTIONS_ON_SENT = CTX_ACTIONS
     ENABLED_EXCEPT_ACTIONS_ON_SENT = EXCEPT_ACTIONS
 
+    ENABLED_EXIT_ACTIONS = EXIT_ACTIONS
     ENABLED_EXCEPT_ACTIONS_ON_RAISED = EXCEPT_ACTIONS
 
     n_ctxs = data.draw(st.integers(min_value=0, max_value=MAX_N_CTXS), label='n_ctxs')
@@ -39,13 +43,16 @@ def test_property(data: st.DataObject) -> None:
         st.booleans() if GEN_ENABLED else st.just(False), label='gen_enabled'
     )
 
-    ActionName: TypeAlias = Literal['send', 'raise', 'break']
-    ACTIONS: Sequence[ActionName] = ('send', 'raise', 'break')
+    ActionName: TypeAlias = Literal['send', 'break']
+    ACTIONS: Sequence[ActionName] = ('send', 'break')
     if not gen_enabled:
         ACTIONS = tuple(a for a in ACTIONS if a != 'send')
 
     def st_action() -> st.SearchStrategy[ActionName]:
         return st.sampled_from(ACTIONS)
+
+    def st_exit_action() -> st.SearchStrategy[ExitActionName]:
+        return st.sampled_from(ENABLED_EXIT_ACTIONS)
 
     stack = data.draw(_st_stack(n_ctxs, gen_enabled), label='stack')
 
@@ -73,17 +80,22 @@ def test_property(data: st.DataObject) -> None:
                     )
                     y = stacked.gen.send(sent)
                     mock_context.on_sent(iter(y))
-                elif action == 'raise':
-                    exc0 = MockException('0')
-                    mock_context.before_raise(
-                        exc0, enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_RAISED
-                    )
-                    raise exc0
                 elif action == 'break':
                     break
                 else:  # pragma: no cover
                     raise ValueError(f'Unknown action: {action!r}')
-            mock_context.before_exit()
+
+            exit_action = data.draw(st_exit_action())
+            if exit_action == 'raise':
+                exc_raised = MockException('raised')
+                mock_context.before_raise(
+                    exc_raised, enabled_except_actions=ENABLED_EXCEPT_ACTIONS_ON_RAISED
+                )
+                raise exc_raised
+            elif exit_action == 'exit':
+                mock_context.before_exit()
+            else:  # pragma: no cover
+                raise ValueError(f'Unknown exit action: {exit_action!r}')
     except Exception as e:
         note(traceback.format_exc())
         exc = e
