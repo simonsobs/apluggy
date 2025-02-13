@@ -77,12 +77,6 @@ class ExitHandler:
             exc_handler=exc_handler,
         )
 
-    def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
-        self._to_be_exited = True
-        self._ctx_ids_expected = list(ctx_ids)
-        self._exc_expected = wrap_exc(None)
-        self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
-
     def expect_to_exit_on_error(
         self,
         ctx_ids: Iterable[CtxId],
@@ -93,6 +87,12 @@ class ExitHandler:
         self._ctx_ids_expected = list(ctx_ids)
         self._exc_expected = exc_expected
         self._exc_handler = exc_handler
+
+    def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
+        self._to_be_exited = True
+        self._ctx_ids_expected = list(ctx_ids)
+        self._exc_expected = wrap_exc(None)
+        self._exc_handler = ExceptionHandlerNull()
 
     def on_error(self, id: CtxId, exc: Exception) -> None:
         self._exc_handler.handle(id, exc)
