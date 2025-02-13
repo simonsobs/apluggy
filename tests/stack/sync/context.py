@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Generator, Iterable, MutableMapping, Sequence
 from contextlib import contextmanager
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 from hypothesis import note
 from hypothesis import strategies as st
