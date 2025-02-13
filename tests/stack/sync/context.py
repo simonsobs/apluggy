@@ -181,12 +181,13 @@ class MockContext:
         )
         exp = wrap_exc(exc)
 
-        suspended_ctx_ids = list(self._ctx_action_map.keys())[:-1]
+        ctx_ids_reversed = list(reversed(list(self._ctx_action_map.keys())))
+        suspended_ctx_ids = ctx_ids_reversed[1:]
 
         exc_handler = self._draw(
             st_exception_handler(
                 exp=exp,
-                ids=reversed(suspended_ctx_ids),
+                ids=suspended_ctx_ids,
                 enabled_actions=self._enabled_except_actions_on_enter,
             )
         )
@@ -195,7 +196,7 @@ class MockContext:
         exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
 
         self._exit_handler.expect_to_exit_on_error(
-            ctx_ids=reversed(list(self._ctx_action_map.keys())),
+            ctx_ids=ctx_ids_reversed,
             exc_expected=exc_expected,
             exc_handler=exc_handler,
         )
