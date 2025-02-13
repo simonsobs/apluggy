@@ -77,6 +77,18 @@ class Sent:
         assert set(self._sent_actual) == {self._sent_expected}
         assert list(yields) == self._yields_expected
 
+
+class SentNull(Sent):
+    def __init__(self) -> None:
+        pass
+
+    def add(self, sent: str) -> None:
+        pass
+
+    def assert_on_sent(self, yields: Iterable[str]) -> None:
+        assert False  # pragma: no cover
+
+
 CtxActionName = Literal['yield', 'raise', 'exit']
 CTX_ACTIONS: Sequence[CtxActionName] = ('yield', 'raise', 'exit')
 
@@ -112,7 +124,7 @@ class MockContext:
 
     def _clear(self) -> None:
         self._ctx_action_map: Union[_ActionMap, None] = None
-        self._sent: Union[Sent, None] = None
+        self._sent: Sent = SentNull()
         self._exit_handler = ExitHandler(
             self._data,
             enabled_except_actions_on_enter=self._enabled_except_actions_on_enter,
@@ -136,8 +148,7 @@ class MockContext:
                     elif action_item[0] == 'yield':
                         try:
                             sent = yield action_item[1]
-                            if self._sent is not None:
-                                self._sent.add(sent)
+                            self._sent.add(sent)
                         except Exception as e:
                             note(f'{ctx_id=} except: {e=}')
                             self._exit_handler.on_error(ctx_id, e)
@@ -237,7 +248,6 @@ class MockContext:
     def on_sent(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_sent()
         assert not self._ctx_action_map
-        assert self._sent is not None
         self._sent.assert_on_sent(yields)
 
     def before_raise(self, exc: Exception) -> None:
