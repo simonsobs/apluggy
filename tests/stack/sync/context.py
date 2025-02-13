@@ -25,14 +25,17 @@ class Created:
     def __init__(self) -> None:
         self._ctx_ids: list[CtxId] = []
         self._ctxs: list[GenCtxMngr] = []
+        self._new_ctx_id = ContextIdGenerator()
 
     @property
     def ctx_ids(self) -> list[CtxId]:
         return list(self._ctx_ids)
 
-    def add(self, ctx_id: CtxId, ctx: GenCtxMngr) -> None:
+    def add(self, ctx: GenCtxMngr) -> CtxId:
+        ctx_id = self._new_ctx_id()
         self._ctx_ids.append(ctx_id)
         self._ctxs.append(ctx)
+        return ctx_id
 
     def assert_on_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
         assert list(ctxs) == self._ctxs
@@ -90,10 +93,7 @@ class MockContext:
         self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
         self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
 
-        self._generate_ctx_id = ContextIdGenerator()
-
         self._created = Created()
-
         self._clear()
 
     def _clear(self) -> None:
@@ -109,8 +109,6 @@ class MockContext:
         )
 
     def __call__(self) -> GenCtxMngr[str]:
-        ctx_id = self._generate_ctx_id()
-
         @contextmanager
         def _ctx() -> Generator[str, str, None]:
             self._entered.add(ctx_id)
@@ -137,7 +135,7 @@ class MockContext:
                 self._exit_handler.on_exiting(ctx_id)
 
         ctx = _ctx()
-        self._created.add(ctx_id, ctx)
+        ctx_id = self._created.add(ctx)
         return ctx
 
     def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
