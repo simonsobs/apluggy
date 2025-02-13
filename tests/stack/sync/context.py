@@ -114,6 +114,33 @@ class ExitHandler:
             exc_handler=exc_handler,
         )
 
+    def expect_raise_on_sent(
+        self,
+        raising_ctx_id: CtxId,
+        entered_ctx_ids: Sequence[CtxId],
+        exp_exc: ExceptionExpectation,
+    ) -> None:
+        suspended_ctx_ids = [id for id in entered_ctx_ids if id != raising_ctx_id]
+        if not suspended_ctx_ids:
+            exc_handler: ExceptionHandler = ExceptionHandlerNull()
+            exc_expected = exp_exc
+        else:
+            exc_handler = self._draw(
+                st_exception_handler(
+                    exp=exp_exc,
+                    ids=reversed(suspended_ctx_ids),
+                    enabled_actions=self._enabled_except_actions_on_sent,
+                )
+            )
+            exp_on_handle = wrap_exc(StopIteration())
+            exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
+
+        self.expect_to_exit_on_error(
+            ctx_ids=[raising_ctx_id, *reversed(suspended_ctx_ids)],
+            exc_expected=exc_expected,
+            exc_handler=exc_handler,
+        )
+
     def expect_to_exit_on_error(
         self,
         ctx_ids: Iterable[CtxId],
@@ -302,33 +329,13 @@ class MockContext:
             note(f'{_name}: {self._yields_expected=}')
             return
 
-        suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
-
         if last_action_item[0] == 'exit':
             self._exit_handler.expect_exit_on_sent(id, self._entered_ctx_ids)
             return
 
         if last_action_item[0] == 'raise':
-            if not suspended_ctx_ids:
-                exc_handler = ExceptionHandlerNull()
-                exc_expected = wrap_exc(last_action_item[1])
-            else:
-                exp = wrap_exc(last_action_item[1])
-                exc_handler = self._draw(
-                    st_exception_handler(
-                        exp=exp,
-                        ids=reversed(suspended_ctx_ids),
-                        enabled_actions=self._enabled_except_actions_on_sent,
-                    )
-                )
-                exc_expected = exc_handler.expect_outermost_exc(
-                    exp_on_handle=wrap_exc(StopIteration())
-                )
-            self._exit_handler.expect_to_exit_on_error(
-                ctx_ids=[id, *reversed(suspended_ctx_ids)],
-                exc_expected=exc_expected,
-                exc_handler=exc_handler,
-            )
+            exp_exc = wrap_exc(last_action_item[1])
+            self._exit_handler.expect_raise_on_sent(id, self._entered_ctx_ids, exp_exc)
             return
 
         raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
