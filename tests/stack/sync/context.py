@@ -66,6 +66,14 @@ class ActionMapExit(ActionMap):
         return ('exit', None)
 
 
+@st.composite
+def st_action_map(
+    draw: st.DrawFn, ids: Iterable[CtxId], enabled_actions: Sequence[CtxActionName]
+) -> 'ActionMapDraw':
+    action_map = draw(_st_ctx_action_map(ids, enabled_actions))
+    return ActionMapDraw(action_map)
+
+
 class ActionMapDraw(ActionMap):
     def __init__(self, action_map: _ActionMap) -> None:
         self._map = action_map
@@ -163,16 +171,12 @@ class MockContext:
             self._entered = Entered()
             return
 
-        _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
-        label = f'{_name}: _ctx_action_map'
-        ctx_action_map = self._draw(
-            _st_ctx_action_map(
+        self._action_map = self._draw(
+            st_action_map(
                 self._created.ctx_ids,
                 enabled_actions=self._enabled_ctx_actions_on_enter,
-            ),
-            label=label,
+            )
         )
-        self._action_map = ActionMapDraw(ctx_action_map)
 
         last_action_item = self._action_map.last_action_item
         if last_action_item[0] == 'yield':
@@ -210,16 +214,12 @@ class MockContext:
             self._exit_handler.expect_send_without_ctx()
             return
 
-        _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
-        label = f'{_name}: _ctx_action_map'
-        ctx_action_map = self._draw(
-            _st_ctx_action_map(
+        self._action_map = self._draw(
+            st_action_map(
                 reversed(self._created.ctx_ids),
                 enabled_actions=self._enabled_ctx_actions_on_sent,
-            ),
-            label=label,
+            )
         )
-        self._action_map = ActionMapDraw(ctx_action_map)
         id = self._action_map.last_ctx_id
         last_action_item = self._action_map.last_action_item
         if last_action_item[0] == 'yield':
@@ -281,5 +281,3 @@ def _st_ctx_action_map(
         raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
 
     return {id: _action_item(id, a) for id, a in zip(ids, actions)}
-
-
