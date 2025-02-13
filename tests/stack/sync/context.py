@@ -21,6 +21,23 @@ from .except_ import EXCEPT_ACTIONS, ExceptActionName
 from .exit_ import ExitHandler
 
 
+class Created:
+    def __init__(self) -> None:
+        self._ctx_ids: list[CtxId] = []
+        self._ctxs: list[GenCtxMngr] = []
+
+    @property
+    def ctx_ids(self) -> list[CtxId]:
+        return list(self._ctx_ids)
+
+    def add(self, ctx_id: CtxId, ctx: GenCtxMngr) -> None:
+        self._ctx_ids.append(ctx_id)
+        self._ctxs.append(ctx)
+
+    def assert_on_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
+        assert list(ctxs) == self._ctxs
+
+
 class Entered:
     def __init__(
         self,
@@ -74,7 +91,8 @@ class MockContext:
         self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
 
         self._generate_ctx_id = ContextIdGenerator()
-        self._ctxs_map: dict[CtxId, GenCtxMngr] = {}
+
+        self._created = Created()
 
         self._created_ctx_ids: list[CtxId] = []
         self._clear()
@@ -121,11 +139,11 @@ class MockContext:
                 self._exit_handler.on_exiting(id)
 
         ctx = _ctx()
-        self._ctxs_map[id] = ctx
+        self._created.add(id, ctx)
         return ctx
 
     def assert_created(self, ctxs: Iterable[GenCtxMngr]) -> None:
-        assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
+        self._created.assert_on_created(ctxs)
 
     def before_enter(self) -> None:
         self._clear()
@@ -149,7 +167,8 @@ class MockContext:
             # All actions are `yield` when the last action is `yield`.
             yields_expected = _extract_yields(self._ctx_action_map)
             self._entered = Entered(
-                ctx_ids_expected=self._created_ctx_ids, yields_expected=yields_expected,
+                ctx_ids_expected=self._created_ctx_ids,
+                yields_expected=yields_expected,
             )
             return
 
@@ -166,7 +185,6 @@ class MockContext:
             return
 
         raise ValueError(f'Unknown action: {last_action_item[0]!r}')
-
 
     def on_entered(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_entered()
