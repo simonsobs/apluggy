@@ -42,9 +42,11 @@ class ExitHandler:
         self,
         data: st.DataObject,
         enabled_except_actions_on_enter: Sequence[ExceptActionName],
+        enabled_except_actions_on_raised: Sequence[ExceptActionName],
     ) -> None:
         self._draw = data.draw
         self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
+        self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
 
         self._to_be_exited = False
         self._ctx_ids: list[CtxId] = []
@@ -73,6 +75,25 @@ class ExitHandler:
 
         self.expect_to_exit_on_error(
             ctx_ids=ctx_ids_reversed,
+            exc_expected=exc_expected,
+            exc_handler=exc_handler,
+        )
+
+    def expect_raise_in_with_block(
+        self, entered_ctx_ids: Sequence[CtxId], exp_exc: ExceptionExpectation
+    ):
+        exc_handler = self._draw(
+            st_exception_handler(
+                exp=exp_exc,
+                ids=reversed(entered_ctx_ids),
+                enabled_actions=self._enabled_except_actions_on_raised,
+            )
+        )
+
+        exc_expected = exc_handler.expect_outermost_exc()
+
+        self.expect_to_exit_on_error(
+            ctx_ids=reversed(entered_ctx_ids),
             exc_expected=exc_expected,
             exc_handler=exc_handler,
         )
@@ -146,6 +167,7 @@ class MockContext:
         self._exit_handler = ExitHandler(
             self._data,
             enabled_except_actions_on_enter=self._enabled_except_actions_on_enter,
+            enabled_except_actions_on_raised=self._enabled_except_actions_on_raised,
         )
 
     def __call__(self) -> GenCtxMngr[str]:
@@ -308,23 +330,12 @@ class MockContext:
         note(f'{_name}({exc=!r})')
         self._clear()
 
-        exc_handler = self._draw(
-            st_exception_handler(
-                exp=wrap_exc(exc),
-                ids=reversed(self._entered_ctx_ids),
-                enabled_actions=self._enabled_except_actions_on_raised,
-            )
-        )
-
         self._ctx_action_map = {}
 
-        exc_expected = exc_handler.expect_outermost_exc()
+        entered_ctx_ids = self._entered_ctx_ids
+        exp_exc = wrap_exc(exc)
 
-        self._exit_handler.expect_to_exit_on_error(
-            ctx_ids=reversed(self._created_ctx_ids),
-            exc_expected=exc_expected,
-            exc_handler=exc_handler,
-        )
+        self._exit_handler.expect_raise_in_with_block(entered_ctx_ids, exp_exc)
 
     def before_exit(self) -> None:
         _name = f'{self.__class__.__name__}.{self.before_exit.__name__}'
