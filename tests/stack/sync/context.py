@@ -33,6 +33,44 @@ _ActionItem: TypeAlias = Union[
 _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 
 
+class ActionMap:
+    def __init__(self, action_map: _ActionMap) -> None:
+        self._map = action_map
+
+    def __len__(self) -> int:
+        return len(self._map)
+
+    def pop(self, ctx_id: CtxId) -> _ActionItem:
+        return self._map.pop(ctx_id, ('exit', None))
+
+    @property
+    def last_ctx_id(self) -> CtxId:
+        return list(self._map.keys())[-1]
+
+    @property
+    def last_action_item(self) -> _ActionItem:
+        return list(self._map.values())[-1]
+
+    @property
+    def yields(self) -> tuple[str, ...]:
+        return _extract_yields(self._map)
+
+    @property
+    def ctx_ids(self) -> list[CtxId]:
+        return list(self._map.keys())
+
+
+class ActionMapNull(ActionMap):
+    def __init__(self) -> None:
+        pass
+
+    def __len__(self) -> int:
+        return 0
+
+    def pop(self, ctx_id: CtxId) -> _ActionItem:
+        assert False
+
+
 class MockContext:
     def __init__(
         self,
@@ -55,7 +93,7 @@ class MockContext:
         self._clear()
 
     def _clear(self) -> None:
-        self._ctx_action_map: Union[_ActionMap, None] = None
+        self._action_map: ActionMap = ActionMapNull()
         self._sent: Sent = SentNull()
         self._exit_handler = ExitHandler(
             self._data,
@@ -70,8 +108,7 @@ class MockContext:
             self._entered.add(ctx_id)
             try:
                 while True:
-                    assert self._ctx_action_map is not None
-                    action_item = self._ctx_action_map.pop(ctx_id, ('exit', None))
+                    action_item = self._action_map.pop(ctx_id)
                     note(f'{ctx_id=} {action_item=}')
                     if action_item[0] == 'raise':
                         raise action_item[1]
@@ -106,25 +143,26 @@ class MockContext:
 
         _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
         label = f'{_name}: _ctx_action_map'
-        self._ctx_action_map = self._draw(
+        ctx_action_map = self._draw(
             _st_ctx_action_map(
                 self._created.ctx_ids,
                 enabled_actions=self._enabled_ctx_actions_on_enter,
             ),
             label=label,
         )
+        self._action_map = ActionMap(ctx_action_map)
 
-        last_action_item = list(self._ctx_action_map.values())[-1]
+        last_action_item = self._action_map.last_action_item
         if last_action_item[0] == 'yield':
             # All actions are `yield` when the last action is `yield`.
-            yields_expected = _extract_yields(self._ctx_action_map)
+            yields_expected = self._action_map.yields
             self._entered = Entered(
                 ctx_ids_expected=self._created.ctx_ids,
                 yields_expected=yields_expected,
             )
             return
 
-        entered_ctx_ids = list(self._ctx_action_map.keys())
+        entered_ctx_ids = self._action_map.ctx_ids
         if last_action_item[0] == 'exit':
             self._entered = Entered()
             self._exit_handler.expect_exit_on_enter(entered_ctx_ids)
@@ -140,7 +178,7 @@ class MockContext:
 
     def on_entered(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_entered()
-        assert not self._ctx_action_map
+        assert not self._action_map
         self._entered.assert_on_entered(yields)
 
     def before_send(self, sent: str) -> None:
@@ -152,17 +190,19 @@ class MockContext:
 
         _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
         label = f'{_name}: _ctx_action_map'
-        self._ctx_action_map = self._draw(
+        ctx_action_map = self._draw(
             _st_ctx_action_map(
                 reversed(self._created.ctx_ids),
                 enabled_actions=self._enabled_ctx_actions_on_sent,
             ),
             label=label,
         )
-        id, last_action_item = list(self._ctx_action_map.items())[-1]
+        self._action_map = ActionMap(ctx_action_map)
+        id = self._action_map.last_ctx_id
+        last_action_item = self._action_map.last_action_item
         if last_action_item[0] == 'yield':
             # All actions are `yield` when the last action is `yield`.
-            yields_expected = _extract_yields(self._ctx_action_map)
+            yields_expected = self._action_map.yields
             self._sent = Sent(sent_expected=sent, yields_expected=yields_expected)
             return
 
@@ -179,23 +219,27 @@ class MockContext:
 
     def on_sent(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_sent()
-        assert not self._ctx_action_map
+        assert not self._action_map
         self._sent.assert_on_sent(yields)
 
     def before_raise(self, exc: Exception) -> None:
         self._clear()
-        self._ctx_action_map = {}
+        ctx_action_map: _ActionMap = {}
+        self._action_map = ActionMap(ctx_action_map)
         entered_ctx_ids = self._entered.ctx_ids
         exp_exc = wrap_exc(exc)
         self._exit_handler.expect_raise_in_with_block(entered_ctx_ids, exp_exc)
 
     def before_exit(self) -> None:
         self._clear()
-        self._ctx_action_map = {id: ('exit', None) for id in self._created.ctx_ids}
+        ctx_action_map: _ActionMap = {
+            id: ('exit', None) for id in self._created.ctx_ids
+        }
+        self._action_map = ActionMap(ctx_action_map)
         self._exit_handler.expect_to_exit(reversed(self._created.ctx_ids))
 
     def on_exited(self, exc: Optional[BaseException] = None) -> None:
-        assert not self._ctx_action_map
+        assert not self._action_map
         self._exit_handler.assert_on_exited(exc)
 
 
