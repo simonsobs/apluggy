@@ -1,4 +1,5 @@
 import sys
+from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable, MutableMapping, Sequence
 from contextlib import contextmanager
 from typing import Literal, Optional, Union
@@ -33,7 +34,28 @@ _ActionItem: TypeAlias = Union[
 _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 
 
-class ActionMap:
+class ActionMap(ABC):
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
+
+    @abstractmethod
+    def pop(self, ctx_id: CtxId) -> _ActionItem:
+        pass
+
+
+class ActionMapNull(ActionMap):
+    def __init__(self) -> None:
+        pass
+
+    def __len__(self) -> int:
+        return 0
+
+    def pop(self, ctx_id: CtxId) -> _ActionItem:
+        assert False
+
+
+class ActionMapDraw(ActionMap):
     def __init__(self, action_map: _ActionMap) -> None:
         self._map = action_map
 
@@ -58,17 +80,6 @@ class ActionMap:
     @property
     def ctx_ids(self) -> list[CtxId]:
         return list(self._map.keys())
-
-
-class ActionMapNull(ActionMap):
-    def __init__(self) -> None:
-        pass
-
-    def __len__(self) -> int:
-        return 0
-
-    def pop(self, ctx_id: CtxId) -> _ActionItem:
-        assert False
 
 
 class MockContext:
@@ -150,7 +161,7 @@ class MockContext:
             ),
             label=label,
         )
-        self._action_map = ActionMap(ctx_action_map)
+        self._action_map = ActionMapDraw(ctx_action_map)
 
         last_action_item = self._action_map.last_action_item
         if last_action_item[0] == 'yield':
@@ -197,7 +208,7 @@ class MockContext:
             ),
             label=label,
         )
-        self._action_map = ActionMap(ctx_action_map)
+        self._action_map = ActionMapDraw(ctx_action_map)
         id = self._action_map.last_ctx_id
         last_action_item = self._action_map.last_action_item
         if last_action_item[0] == 'yield':
@@ -225,7 +236,7 @@ class MockContext:
     def before_raise(self, exc: Exception) -> None:
         self._clear()
         ctx_action_map: _ActionMap = {}
-        self._action_map = ActionMap(ctx_action_map)
+        self._action_map = ActionMapDraw(ctx_action_map)
         entered_ctx_ids = self._entered.ctx_ids
         exp_exc = wrap_exc(exc)
         self._exit_handler.expect_raise_in_with_block(entered_ctx_ids, exp_exc)
@@ -235,7 +246,7 @@ class MockContext:
         ctx_action_map: _ActionMap = {
             id: ('exit', None) for id in self._created.ctx_ids
         }
-        self._action_map = ActionMap(ctx_action_map)
+        self._action_map = ActionMapDraw(ctx_action_map)
         self._exit_handler.expect_to_exit(reversed(self._created.ctx_ids))
 
     def on_exited(self, exc: Optional[BaseException] = None) -> None:
