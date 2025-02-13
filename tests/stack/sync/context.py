@@ -258,20 +258,20 @@ class MockContext:
         assert list(ctxs) == [self._ctxs_map[id] for id in self._created_ctx_ids]
 
     def before_enter(self) -> None:
-        _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
-        note(f'{_name}()')
         self._clear()
 
         if not self._created_ctx_ids:
             self._yields_expected = []
             return
 
+        _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
+        label = f'{_name}: _ctx_action_map'
         self._ctx_action_map = self._draw(
             _st_ctx_action_map(
                 self._created_ctx_ids,
                 enabled_actions=self._enabled_ctx_actions_on_enter,
             ),
-            label=f'{_name}: _ctx_action_map',
+            label=label,
         )
 
         last_action_item = list(self._ctx_action_map.values())[-1]
@@ -281,7 +281,6 @@ class MockContext:
             self._yields_expected = [
                 e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
             ]
-            note(f'{_name}: {self._yields_expected=}')
             return
 
         entered_ctx_ids = list(self._ctx_action_map.keys())
@@ -303,20 +302,20 @@ class MockContext:
         assert list(yields) == self._yields_expected
 
     def before_send(self, sent: str) -> None:
-        _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
-        note(f'{_name}({sent=})')
         self._clear()
 
         if not self._created_ctx_ids:
             self._exit_handler.expect_send_without_ctx()
             return
 
+        _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
+        label=f'{_name}: _ctx_action_map'
         self._ctx_action_map = self._draw(
             _st_ctx_action_map(
                 reversed(self._created_ctx_ids),
                 enabled_actions=self._enabled_ctx_actions_on_sent,
             ),
-            label=f'{_name}: _ctx_action_map',
+            label=label,
         )
         id, last_action_item = list(self._ctx_action_map.items())[-1]
         if last_action_item[0] == 'yield':
@@ -326,7 +325,6 @@ class MockContext:
             self._yields_expected = [
                 e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
             ]
-            note(f'{_name}: {self._yields_expected=}')
             return
 
         if last_action_item[0] == 'exit':
