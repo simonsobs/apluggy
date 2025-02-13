@@ -31,6 +31,10 @@ class Entered:
         self._yields_expected = list(yields_expected)
         self._ctx_ids: list[CtxId] = []
 
+    @property
+    def ctx_ids(self) -> list[CtxId]:
+        return list(self._ctx_ids)
+
     def add(self, ctx_id: CtxId) -> None:
         self._ctx_ids.append(ctx_id)
 
@@ -73,7 +77,6 @@ class MockContext:
         self._ctxs_map: dict[CtxId, GenCtxMngr] = {}
 
         self._created_ctx_ids: list[CtxId] = []
-        self._entered_ctx_ids: list[CtxId] = []
         self._clear()
 
     def _clear(self) -> None:
@@ -95,7 +98,6 @@ class MockContext:
         @contextmanager
         def _ctx() -> Generator[str, str, None]:
             self._entered.add(id)
-            self._entered_ctx_ids.append(id)
             try:
                 while True:
                     assert self._ctx_action_map is not None
@@ -129,7 +131,6 @@ class MockContext:
         self._clear()
 
         if not self._created_ctx_ids:
-            self._yields_expected = []
             self._entered = Entered()
             return
 
@@ -150,7 +151,6 @@ class MockContext:
             yields_expected = [
                 e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
             ]
-            self._yields_expected = yields_expected
             self._entered = Entered(
                 ctx_ids_expected=self._created_ctx_ids, yields_expected=yields_expected
             )
@@ -202,12 +202,12 @@ class MockContext:
             return
 
         if last_action_item[0] == 'exit':
-            self._exit_handler.expect_exit_on_sent(id, self._entered_ctx_ids)
+            self._exit_handler.expect_exit_on_sent(id, self._entered.ctx_ids)
             return
 
         if last_action_item[0] == 'raise':
             exp_exc = wrap_exc(last_action_item[1])
-            self._exit_handler.expect_raise_on_sent(id, self._entered_ctx_ids, exp_exc)
+            self._exit_handler.expect_raise_on_sent(id, self._entered.ctx_ids, exp_exc)
             return
 
         raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
@@ -221,7 +221,7 @@ class MockContext:
     def before_raise(self, exc: Exception) -> None:
         self._clear()
         self._ctx_action_map = {}
-        entered_ctx_ids = self._entered_ctx_ids
+        entered_ctx_ids = self._entered.ctx_ids
         exp_exc = wrap_exc(exc)
         self._exit_handler.expect_raise_in_with_block(entered_ctx_ids, exp_exc)
 
