@@ -49,6 +49,10 @@ class ExitHandler:
         self._to_be_exited = False
         self._ctx_ids: list[CtxId] = []
 
+    def expect_exit_on_enter(self, entered_ctx_ids: Sequence[CtxId]) -> None:
+        # The last entered context exits without yielding.
+        self.expect_raise_on_enter(entered_ctx_ids, wrap_exc(GeneratorDidNotYield))
+
     def expect_raise_on_enter(
         self, entered_ctx_ids: Sequence[CtxId], exp_exc: ExceptionExpectation
     ) -> None:
@@ -207,16 +211,17 @@ class MockContext:
             note(f'{_name}: {self._yields_expected=}')
             return
 
-        assert last_action_item[0] in {'raise', 'exit'}
-
-        exc = (
-            last_action_item[1]
-            if last_action_item[0] == 'raise'
-            else GeneratorDidNotYield  # last_action_item[0] == 'exit'
-        )
-        exp = wrap_exc(exc)
         entered_ctx_ids = list(self._ctx_action_map.keys())
-        self._exit_handler.expect_raise_on_enter(entered_ctx_ids, exp)
+        if last_action_item[0] == 'exit':
+            self._exit_handler.expect_exit_on_enter(entered_ctx_ids)
+            return
+
+        if last_action_item[0] == 'raise':
+            exp_exc = wrap_exc(last_action_item[1])
+            self._exit_handler.expect_raise_on_enter(entered_ctx_ids, exp_exc)
+            return
+
+        raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
 
     def on_entered(self, yields: Iterable[str]) -> None:
         yields = list(yields)
