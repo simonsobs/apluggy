@@ -42,10 +42,12 @@ class ExitHandler:
         self,
         data: st.DataObject,
         enabled_except_actions_on_enter: Sequence[ExceptActionName],
+        enabled_except_actions_on_sent: Sequence[ExceptActionName],
         enabled_except_actions_on_raised: Sequence[ExceptActionName],
     ) -> None:
         self._draw = data.draw
         self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
+        self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
         self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
 
         self._to_be_exited = False
@@ -94,6 +96,20 @@ class ExitHandler:
 
         self.expect_to_exit_on_error(
             ctx_ids=reversed(entered_ctx_ids),
+            exc_expected=exc_expected,
+            exc_handler=exc_handler,
+        )
+
+    def expect_exit_on_sent(
+        self,
+        exiting_ctx_id: CtxId,
+        entered_ctx_ids: Sequence[CtxId],
+    ) -> None:
+        suspended_ctx_ids = [id for id in entered_ctx_ids if id != exiting_ctx_id]
+        exc_handler = ExceptionHandlerNull()
+        exc_expected = wrap_exc(StopIteration())
+        self.expect_to_exit_on_error(
+            ctx_ids=[exiting_ctx_id, *reversed(suspended_ctx_ids)],
             exc_expected=exc_expected,
             exc_handler=exc_handler,
         )
@@ -167,6 +183,7 @@ class MockContext:
         self._exit_handler = ExitHandler(
             self._data,
             enabled_except_actions_on_enter=self._enabled_except_actions_on_enter,
+            enabled_except_actions_on_sent=self._enabled_except_actions_on_sent,
             enabled_except_actions_on_raised=self._enabled_except_actions_on_raised,
         )
 
@@ -285,13 +302,13 @@ class MockContext:
             note(f'{_name}: {self._yields_expected=}')
             return
 
-        assert last_action_item[0] in {'raise', 'exit'}
         suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
 
         if last_action_item[0] == 'exit':
-            exc_handler = ExceptionHandlerNull()
-            exc_expected = wrap_exc(StopIteration())
-        elif last_action_item[0] == 'raise':
+            self._exit_handler.expect_exit_on_sent(id, self._entered_ctx_ids)
+            return
+
+        if last_action_item[0] == 'raise':
             if not suspended_ctx_ids:
                 exc_handler = ExceptionHandlerNull()
                 exc_expected = wrap_exc(last_action_item[1])
@@ -307,14 +324,14 @@ class MockContext:
                 exc_expected = exc_handler.expect_outermost_exc(
                     exp_on_handle=wrap_exc(StopIteration())
                 )
-        else:  # pragma: no cover
-            raise ValueError(f'Unknown action: {last_action_item[0]!r}')
+            self._exit_handler.expect_to_exit_on_error(
+                ctx_ids=[id, *reversed(suspended_ctx_ids)],
+                exc_expected=exc_expected,
+                exc_handler=exc_handler,
+            )
+            return
 
-        self._exit_handler.expect_to_exit_on_error(
-            ctx_ids=[id, *reversed(suspended_ctx_ids)],
-            exc_expected=exc_expected,
-            exc_handler=exc_handler,
-        )
+        raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
 
     def on_sent(self, yields: Iterable[str]) -> None:
         yields = list(yields)
