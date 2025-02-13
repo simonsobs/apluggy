@@ -297,13 +297,10 @@ class MockContext:
         raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
 
     def on_entered(self, yields: Iterable[str]) -> None:
-        yields = list(yields)
-        _name = f'{self.__class__.__name__}.{self.on_entered.__name__}'
-        note(f'{_name}({yields=!r})')
         self._exit_handler.assert_on_entered()
         assert self._entered_ctx_ids == self._created_ctx_ids
         assert not self._ctx_action_map
-        assert yields == self._yields_expected
+        assert list(yields) == self._yields_expected
 
     def before_send(self, sent: str) -> None:
         _name = f'{self.__class__.__name__}.{self.before_send.__name__}'
@@ -344,38 +341,24 @@ class MockContext:
         raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
 
     def on_sent(self, yields: Iterable[str]) -> None:
-        yields = list(yields)
-        _name = f'{self.__class__.__name__}.{self.on_sent.__name__}'
-        note(f'{_name}({yields=!r})')
         self._exit_handler.assert_on_sent()
         assert not self._ctx_action_map
         assert self._sent_actual == self._sent_expected
-        assert yields == self._yields_expected
+        assert list(yields) == self._yields_expected
 
     def before_raise(self, exc: Exception) -> None:
-        _name = f'{self.__class__.__name__}.{self.before_raise.__name__}'
-        note(f'{_name}({exc=!r})')
         self._clear()
-
         self._ctx_action_map = {}
-
         entered_ctx_ids = self._entered_ctx_ids
         exp_exc = wrap_exc(exc)
-
         self._exit_handler.expect_raise_in_with_block(entered_ctx_ids, exp_exc)
 
     def before_exit(self) -> None:
-        _name = f'{self.__class__.__name__}.{self.before_exit.__name__}'
-        note(f'{_name}()')
         self._clear()
-
         self._ctx_action_map = {id: ('exit', None) for id in self._created_ctx_ids}
         self._exit_handler.expect_to_exit(reversed(self._created_ctx_ids))
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
-        _name = f'{self.__class__.__name__}.{self.on_exited.__name__}'
-        note(f'{_name}({exc=!r})')
-
         assert not self._ctx_action_map
         self._exit_handler.assert_on_exited(exc)
 
