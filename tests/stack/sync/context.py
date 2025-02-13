@@ -147,12 +147,9 @@ class MockContext:
         last_action_item = list(self._ctx_action_map.values())[-1]
         if last_action_item[0] == 'yield':
             # All actions are `yield` when the last action is `yield`.
-            # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
-            yields_expected = [
-                e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
-            ]
+            yields_expected = _extract_yields(self._ctx_action_map)
             self._entered = Entered(
-                ctx_ids_expected=self._created_ctx_ids, yields_expected=yields_expected
+                ctx_ids_expected=self._created_ctx_ids, yields_expected=yields_expected,
             )
             return
 
@@ -168,7 +165,8 @@ class MockContext:
             self._exit_handler.expect_raise_on_enter(entered_ctx_ids, exp_exc)
             return
 
-        raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
+        raise ValueError(f'Unknown action: {last_action_item[0]!r}')
+
 
     def on_entered(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_entered()
@@ -195,10 +193,8 @@ class MockContext:
         if last_action_item[0] == 'yield':
             self._sent_expected = [sent] * len(self._created_ctx_ids)
             # All actions are `yield` when the last action is `yield`.
-            # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
-            self._yields_expected = [
-                e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
-            ]
+            yields_expected = _extract_yields(self._ctx_action_map)
+            self._yields_expected = list(yields_expected)
             return
 
         if last_action_item[0] == 'exit':
@@ -255,3 +251,7 @@ def _st_ctx_action_map(
         raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
 
     return {id: _action_item(id, a) for id, a in zip(ids, actions)}
+
+
+def _extract_yields(action_map: _ActionMap) -> tuple[str, ...]:
+    return tuple(e[1] for e in action_map.values() if e[0] == 'yield')
