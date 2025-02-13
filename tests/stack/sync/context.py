@@ -17,7 +17,7 @@ else:
 
 from .ctx_id import ContextIdGenerator, CtxId
 from .exc import ExceptionExpectation, GeneratorDidNotYield, MockException, wrap_exc
-from .handle import (
+from .except_ import (
     EXCEPT_ACTIONS,
     ExceptActionName,
     ExceptionHandler,
