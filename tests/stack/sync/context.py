@@ -86,7 +86,7 @@ class ActionMapDraw(ActionMap):
 
     @property
     def yields(self) -> tuple[str, ...]:
-        return _extract_yields(self._map)
+        return tuple(e[1] for e in self._map.values() if e[0] == 'yield')
 
     @property
     def ctx_ids(self) -> list[CtxId]:
@@ -283,5 +283,3 @@ def _st_ctx_action_map(
     return {id: _action_item(id, a) for id, a in zip(ids, actions)}
 
 
-def _extract_yields(action_map: _ActionMap) -> tuple[str, ...]:
-    return tuple(e[1] for e in action_map.values() if e[0] == 'yield')
