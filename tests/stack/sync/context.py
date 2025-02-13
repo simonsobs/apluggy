@@ -100,6 +100,13 @@ class ExitHandler:
             exc_handler=exc_handler,
         )
 
+    def expect_send_without_ctx(self) -> None:
+        exc_handler = ExceptionHandlerNull()
+        exc_expected = wrap_exc(StopIteration())
+        self.expect_to_exit_on_error(
+            ctx_ids=[], exc_expected=exc_expected, exc_handler=exc_handler
+        )
+
     def expect_exit_on_sent(
         self,
         exiting_ctx_id: CtxId,
@@ -304,11 +311,7 @@ class MockContext:
         self._clear()
 
         if not self._created_ctx_ids:
-            exc_handler: ExceptionHandler = ExceptionHandlerNull()
-            exc_expected = wrap_exc(StopIteration())
-            self._exit_handler.expect_to_exit_on_error(
-                ctx_ids=[], exc_expected=exc_expected, exc_handler=exc_handler
-            )
+            self._exit_handler.expect_send_without_ctx()
             return
 
         self._ctx_action_map = self._draw(
