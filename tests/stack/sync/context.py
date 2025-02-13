@@ -20,6 +20,25 @@ from .exc import MockException, wrap_exc
 from .except_ import EXCEPT_ACTIONS, ExceptActionName
 from .exit_ import ExitHandler
 
+
+class Entered:
+    def __init__(
+        self,
+        ctx_ids_expected: Iterable[CtxId] = (),
+        yields_expected: Iterable[str] = (),
+    ) -> None:
+        self._ctx_ids_expected = list(ctx_ids_expected)
+        self._yields_expected = list(yields_expected)
+        self._ctx_ids: list[CtxId] = []
+
+    def add(self, ctx_id: CtxId) -> None:
+        self._ctx_ids.append(ctx_id)
+
+    def assert_on_entered(self, yields: Iterable[str]) -> None:
+        assert self._ctx_ids == self._ctx_ids_expected
+        assert list(yields) == self._yields_expected
+
+
 CtxActionName = Literal['yield', 'raise', 'exit']
 CTX_ACTIONS: Sequence[CtxActionName] = ('yield', 'raise', 'exit')
 
@@ -75,6 +94,7 @@ class MockContext:
 
         @contextmanager
         def _ctx() -> Generator[str, str, None]:
+            self._entered.add(id)
             self._entered_ctx_ids.append(id)
             try:
                 while True:
@@ -110,6 +130,7 @@ class MockContext:
 
         if not self._created_ctx_ids:
             self._yields_expected = []
+            self._entered = Entered()
             return
 
         _name = f'{self.__class__.__name__}.{self.before_enter.__name__}'
@@ -126,17 +147,23 @@ class MockContext:
         if last_action_item[0] == 'yield':
             # All actions are `yield` when the last action is `yield`.
             # `e[0] == 'yield'` is to reduce the type of `e[1]` to `str`.
-            self._yields_expected = [
+            yields_expected = [
                 e[1] for e in self._ctx_action_map.values() if e[0] == 'yield'
             ]
+            self._yields_expected = yields_expected
+            self._entered = Entered(
+                ctx_ids_expected=self._created_ctx_ids, yields_expected=yields_expected
+            )
             return
 
         entered_ctx_ids = list(self._ctx_action_map.keys())
         if last_action_item[0] == 'exit':
+            self._entered = Entered()
             self._exit_handler.expect_exit_on_enter(entered_ctx_ids)
             return
 
         if last_action_item[0] == 'raise':
+            self._entered = Entered()
             exp_exc = wrap_exc(last_action_item[1])
             self._exit_handler.expect_raise_on_enter(entered_ctx_ids, exp_exc)
             return
@@ -145,9 +172,8 @@ class MockContext:
 
     def on_entered(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_entered()
-        assert self._entered_ctx_ids == self._created_ctx_ids
         assert not self._ctx_action_map
-        assert list(yields) == self._yields_expected
+        self._entered.assert_on_entered(yields)
 
     def before_send(self, sent: str) -> None:
         self._clear()
