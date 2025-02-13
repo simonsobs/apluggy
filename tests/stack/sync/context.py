@@ -55,6 +55,17 @@ class ActionMapNull(ActionMap):
         assert False
 
 
+class ActionMapExit(ActionMap):
+    def __init__(self) -> None:
+        pass
+
+    def __len__(self) -> int:
+        return 0
+
+    def pop(self, ctx_id: CtxId) -> _ActionItem:
+        return ('exit', None)
+
+
 class ActionMapDraw(ActionMap):
     def __init__(self, action_map: _ActionMap) -> None:
         self._map = action_map
@@ -235,18 +246,14 @@ class MockContext:
 
     def before_raise(self, exc: Exception) -> None:
         self._clear()
-        ctx_action_map: _ActionMap = {}
-        self._action_map = ActionMapDraw(ctx_action_map)
+        self._action_map = ActionMapExit()
         entered_ctx_ids = self._entered.ctx_ids
         exp_exc = wrap_exc(exc)
         self._exit_handler.expect_raise_in_with_block(entered_ctx_ids, exp_exc)
 
     def before_exit(self) -> None:
         self._clear()
-        ctx_action_map: _ActionMap = {
-            id: ('exit', None) for id in self._created.ctx_ids
-        }
-        self._action_map = ActionMapDraw(ctx_action_map)
+        self._action_map = ActionMapExit()
         self._exit_handler.expect_to_exit(reversed(self._created.ctx_ids))
 
     def on_exited(self, exc: Optional[BaseException] = None) -> None:
