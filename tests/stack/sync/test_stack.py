@@ -1,7 +1,7 @@
 import sys
 import traceback
 from collections.abc import Sequence
-from typing import Literal, Union
+from typing import Literal
 
 from hypothesis import given, note, settings
 from hypothesis import strategies as st
@@ -67,7 +67,6 @@ def test_property(data: st.DataObject) -> None:
     mock_context.assert_created(iter(ctxs))  # `iter()` to test with an iterable.
 
     mock_context.before_enter()
-    exc: Union[Exception, None] = None
     try:
         with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
@@ -91,8 +90,9 @@ def test_property(data: st.DataObject) -> None:
                 raise ValueError(f'Unknown exit action: {exit_action!r}')
     except Exception as e:
         note(traceback.format_exc())
-        exc = e
-    mock_context.on_exited(exc=exc)
+        mock_context.on_exited(exc=e)
+    else:
+        mock_context.on_exited()
 
 
 def _st_stack(n_ctxs: int, gen_enabled: bool) -> st.SearchStrategy[Stack]:

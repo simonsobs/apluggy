@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Generator, Iterable, MutableMapping, Sequence
 from contextlib import contextmanager
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from hypothesis import note
 from hypothesis import strategies as st
@@ -262,7 +262,7 @@ class MockContext:
         self._ctx_action_map = {id: ('exit', None) for id in self._created.ctx_ids}
         self._exit_handler.expect_to_exit(reversed(self._created.ctx_ids))
 
-    def on_exited(self, exc: Union[BaseException, None]) -> None:
+    def on_exited(self, exc: Optional[BaseException] = None) -> None:
         assert not self._ctx_action_map
         self._exit_handler.assert_on_exited(exc)
 
