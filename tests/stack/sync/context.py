@@ -38,9 +38,40 @@ _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 
 
 class ExitHandler:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        data: st.DataObject,
+        enabled_except_actions_on_enter: Sequence[ExceptActionName],
+    ) -> None:
+        self._draw = data.draw
+        self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
+
         self._to_be_exited = False
         self._ctx_ids: list[CtxId] = []
+
+    def expect_raise_on_enter(
+        self, entered_ctx_ids: Sequence[CtxId], exp_exc: ExceptionExpectation
+    ) -> None:
+        # The last entered context raises an exception.
+        ctx_ids_reversed = list(reversed(entered_ctx_ids))
+        suspended_ctx_ids = ctx_ids_reversed[1:]
+
+        exc_handler = self._draw(
+            st_exception_handler(
+                exp=exp_exc,
+                ids=suspended_ctx_ids,
+                enabled_actions=self._enabled_except_actions_on_enter,
+            )
+        )
+
+        exp_on_handle = wrap_exc(GeneratorDidNotYield)
+        exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
+
+        self.expect_to_exit_on_error(
+            ctx_ids=ctx_ids_reversed,
+            exc_expected=exc_expected,
+            exc_handler=exc_handler,
+        )
 
     def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
         self._to_be_exited = True
@@ -88,6 +119,7 @@ class MockContext:
         enabled_except_actions_on_sent: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
         enabled_except_actions_on_raised: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
     ) -> None:
+        self._data = data
         self._draw = data.draw
         self._enabled_ctx_actions_on_enter = enabled_ctx_actions_on_enter
         self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
@@ -107,7 +139,10 @@ class MockContext:
         self._sent_expected: list[str] = []
         self._sent_actual: list[str] = []
         self._yields_expected: list[str] = []
-        self._exit_handler = ExitHandler()
+        self._exit_handler = ExitHandler(
+            self._data,
+            enabled_except_actions_on_enter=self._enabled_except_actions_on_enter,
+        )
 
     def __call__(self) -> GenCtxMngr[str]:
         id = self._generate_ctx_id()
@@ -180,26 +215,8 @@ class MockContext:
             else GeneratorDidNotYield  # last_action_item[0] == 'exit'
         )
         exp = wrap_exc(exc)
-
-        ctx_ids_reversed = list(reversed(list(self._ctx_action_map.keys())))
-        suspended_ctx_ids = ctx_ids_reversed[1:]
-
-        exc_handler = self._draw(
-            st_exception_handler(
-                exp=exp,
-                ids=suspended_ctx_ids,
-                enabled_actions=self._enabled_except_actions_on_enter,
-            )
-        )
-
-        exp_on_handle = wrap_exc(GeneratorDidNotYield)
-        exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
-
-        self._exit_handler.expect_to_exit_on_error(
-            ctx_ids=ctx_ids_reversed,
-            exc_expected=exc_expected,
-            exc_handler=exc_handler,
-        )
+        entered_ctx_ids = list(self._ctx_action_map.keys())
+        self._exit_handler.expect_raise_on_enter(entered_ctx_ids, exp)
 
     def on_entered(self, yields: Iterable[str]) -> None:
         yields = list(yields)
