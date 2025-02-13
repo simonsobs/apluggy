@@ -63,6 +63,20 @@ class Entered:
         assert list(yields) == self._yields_expected
 
 
+class Sent:
+    def __init__(self, sent_expected: str, yields_expected: Iterable[str]) -> None:
+        self._sent_expected = sent_expected
+        self._yields_expected = list(yields_expected)
+        self._sent_actual: list[str] = []
+
+    def add(self, sent: str) -> None:
+        self._sent_actual.append(sent)
+
+    def assert_on_sent(self, yields: Iterable[str]) -> None:
+        assert len(self._sent_actual) == len(self._yields_expected)
+        assert set(self._sent_actual) == {self._sent_expected}
+        assert list(yields) == self._yields_expected
+
 CtxActionName = Literal['yield', 'raise', 'exit']
 CTX_ACTIONS: Sequence[CtxActionName] = ('yield', 'raise', 'exit')
 
@@ -98,9 +112,7 @@ class MockContext:
 
     def _clear(self) -> None:
         self._ctx_action_map: Union[_ActionMap, None] = None
-        self._sent_expected: list[str] = []
-        self._sent_actual: list[str] = []
-        self._yields_expected: list[str] = []
+        self._sent: Union[Sent, None] = None
         self._exit_handler = ExitHandler(
             self._data,
             enabled_except_actions_on_enter=self._enabled_except_actions_on_enter,
@@ -124,7 +136,8 @@ class MockContext:
                     elif action_item[0] == 'yield':
                         try:
                             sent = yield action_item[1]
-                            self._sent_actual.append(sent)
+                            if self._sent is not None:
+                                self._sent.add(sent)
                         except Exception as e:
                             note(f'{ctx_id=} except: {e=}')
                             self._exit_handler.on_error(ctx_id, e)
@@ -205,10 +218,9 @@ class MockContext:
         )
         id, last_action_item = list(self._ctx_action_map.items())[-1]
         if last_action_item[0] == 'yield':
-            self._sent_expected = [sent] * len(self._created.ctx_ids)
             # All actions are `yield` when the last action is `yield`.
             yields_expected = _extract_yields(self._ctx_action_map)
-            self._yields_expected = list(yields_expected)
+            self._sent = Sent(sent_expected=sent, yields_expected=yields_expected)
             return
 
         if last_action_item[0] == 'exit':
@@ -225,8 +237,8 @@ class MockContext:
     def on_sent(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_sent()
         assert not self._ctx_action_map
-        assert self._sent_actual == self._sent_expected
-        assert list(yields) == self._yields_expected
+        assert self._sent is not None
+        self._sent.assert_on_sent(yields)
 
     def before_raise(self, exc: Exception) -> None:
         self._clear()
