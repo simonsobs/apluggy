@@ -25,14 +25,14 @@ from .handle import (
     st_exception_handler,
 )
 
-CtxActionName = Literal['yield', 'raise', 'break']
-CTX_ACTIONS: Sequence[CtxActionName] = ('yield', 'raise', 'break')
+CtxActionName = Literal['yield', 'raise', 'exit']
+CTX_ACTIONS: Sequence[CtxActionName] = ('yield', 'raise', 'exit')
 
 
 _ActionItem: TypeAlias = Union[
     tuple[Literal['yield'], str],
     tuple[Literal['raise'], Exception],
-    tuple[Literal['break'], None],
+    tuple[Literal['exit'], None],
 ]
 _ActionMap: TypeAlias = MutableMapping[CtxId, _ActionItem]
 
@@ -119,11 +119,11 @@ class MockContext:
             try:
                 while True:
                     assert self._ctx_action_map is not None
-                    action_item = self._ctx_action_map.pop(id, ('break', None))
+                    action_item = self._ctx_action_map.pop(id, ('exit', None))
                     note(f'ctx {id=} {action_item=}')
                     if action_item[0] == 'raise':
                         raise action_item[1]
-                    elif action_item[0] == 'break':
+                    elif action_item[0] == 'exit':
                         break
                     elif action_item[0] == 'yield':
                         try:
@@ -172,12 +172,12 @@ class MockContext:
             note(f'{_name}: {self._yields_expected=}')
             return
 
-        assert last_action_item[0] in {'raise', 'break'}
+        assert last_action_item[0] in {'raise', 'exit'}
 
         exc = (
             last_action_item[1]
             if last_action_item[0] == 'raise'
-            else GeneratorDidNotYield  # last_action_item[0] == 'break'
+            else GeneratorDidNotYield  # last_action_item[0] == 'exit'
         )
         exp = wrap_exc(exc)
 
@@ -240,10 +240,10 @@ class MockContext:
             note(f'{_name}: {self._yields_expected=}')
             return
 
-        assert last_action_item[0] in {'raise', 'break'}
+        assert last_action_item[0] in {'raise', 'exit'}
         suspended_ctx_ids = [i for i in self._created_ctx_ids if i != id]
 
-        if last_action_item[0] == 'break':
+        if last_action_item[0] == 'exit':
             exc_handler = ExceptionHandlerNull()
             exc_expected = wrap_exc(StopIteration())
         elif last_action_item[0] == 'raise':
@@ -308,7 +308,7 @@ class MockContext:
         note(f'{_name}()')
         self._clear()
 
-        self._ctx_action_map = {id: ('break', None) for id in self._created_ctx_ids}
+        self._ctx_action_map = {id: ('exit', None) for id in self._created_ctx_ids}
         self._exit_handler.expect_to_exit(reversed(self._created_ctx_ids))
 
     def on_exited(self, exc: Union[BaseException, None]) -> None:
@@ -326,7 +326,7 @@ def _st_ctx_action_map(
     ids = list(ids)
     st_actions = st.sampled_from(enabled_actions)
     actions: list[CtxActionName] = draw(
-        st_list_until(st_actions, last={'raise', 'break'}, max_size=len(ids))
+        st_list_until(st_actions, last={'raise', 'exit'}, max_size=len(ids))
     )
 
     def _action_item(id: CtxId, action: CtxActionName) -> _ActionItem:
@@ -334,8 +334,8 @@ def _st_ctx_action_map(
             return ('raise', MockException(f'{id}'))
         if action == 'yield':
             return ('yield', f'yield-{id}')
-        if action == 'break':
-            return ('break', None)
+        if action == 'exit':
+            return ('exit', None)
         raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
 
     return {id: _action_item(id, a) for id, a in zip(ids, actions)}
