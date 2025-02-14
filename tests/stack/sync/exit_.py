@@ -75,11 +75,8 @@ class ExitHandler:
         )
 
     def expect_send_without_ctx(self) -> None:
-        exc_handler: Optional[ExceptionHandler] = None
         exc_expected = wrap_exc(StopIteration())
-        self._expect_to_exit_on_error(
-            ctx_ids=[], exc_expected=exc_expected, exc_handler=exc_handler
-        )
+        self._expect_to_exit_on_error(ctx_ids=[], exc_expected=exc_expected)
 
     def expect_exit_on_sent(
         self,
@@ -87,12 +84,10 @@ class ExitHandler:
         entered_ctx_ids: Sequence[CtxId],
     ) -> None:
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != exiting_ctx_id]
-        exc_handler: Optional[ExceptionHandler] = None
         exc_expected = wrap_exc(StopIteration())
         self._expect_to_exit_on_error(
             ctx_ids=[exiting_ctx_id, *reversed(suspended_ctx_ids)],
             exc_expected=exc_expected,
-            exc_handler=exc_handler,
         )
 
     def expect_raise_on_sent(
@@ -102,9 +97,9 @@ class ExitHandler:
         exp_exc: ExceptionExpectation,
     ) -> None:
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != raising_ctx_id]
+        ctx_ids = [raising_ctx_id, *reversed(suspended_ctx_ids)]
         if not suspended_ctx_ids:
-            exc_handler: Optional[ExceptionHandler] = None
-            exc_expected = exp_exc
+            self._expect_to_exit_on_error(ctx_ids=ctx_ids, exc_expected=exp_exc)
         else:
             exc_handler = self._draw(
                 st_exception_handler(
@@ -115,18 +110,15 @@ class ExitHandler:
             )
             exp_on_handle = wrap_exc(StopIteration())
             exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
-
-        self._expect_to_exit_on_error(
-            ctx_ids=[raising_ctx_id, *reversed(suspended_ctx_ids)],
-            exc_expected=exc_expected,
-            exc_handler=exc_handler,
-        )
+            self._expect_to_exit_on_error(
+                ctx_ids=ctx_ids, exc_expected=exc_expected, exc_handler=exc_handler
+            )
 
     def _expect_to_exit_on_error(
         self,
         ctx_ids: Iterable[CtxId],
         exc_expected: ExceptionExpectation,
-        exc_handler: Optional[ExceptionHandler],
+        exc_handler: Optional[ExceptionHandler] = None,
     ) -> None:
         self._expected = _Expected(ctx_ids, exc_expected)
         self._exc_handler = exc_handler
