@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from typing import Optional
@@ -27,14 +26,18 @@ class MockContext:
     ) -> None:
         self._data = data
         self._draw = data.draw
-        self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
-        self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
-        self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
 
         self._act_strat = ContextActionStrategy(
             data,
             enabled_actions_on_enter=enabled_ctx_actions_on_enter,
             enabled_actions_on_sent=enabled_ctx_actions_on_sent,
+        )
+
+        self._exit_handler = ExitHandler(
+            self._data,
+            enabled_except_actions_on_enter=enabled_except_actions_on_enter,
+            enabled_except_actions_on_sent=enabled_except_actions_on_sent,
+            enabled_except_actions_on_raised=enabled_except_actions_on_raised,
         )
 
         self._created = Created()
@@ -43,12 +46,7 @@ class MockContext:
     def _clear(self) -> None:
         self._act_strat.clear()
         self._sent: Sent = SentNull()
-        self._exit_handler = ExitHandler(
-            self._data,
-            enabled_except_actions_on_enter=self._enabled_except_actions_on_enter,
-            enabled_except_actions_on_sent=self._enabled_except_actions_on_sent,
-            enabled_except_actions_on_raised=self._enabled_except_actions_on_raised,
-        )
+        self._exit_handler.clear()
 
     def __call__(self) -> GenCtxMngr[str]:
         @contextmanager
