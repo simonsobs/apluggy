@@ -49,7 +49,7 @@ class ExitHandler:
         exp_on_handle = wrap_exc(GeneratorDidNotYield)
         exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
 
-        self.expect_to_exit_on_error(
+        self._expect_to_exit_on_error(
             ctx_ids=ctx_ids_reversed,
             exc_expected=exc_expected,
             exc_handler=exc_handler,
@@ -68,7 +68,7 @@ class ExitHandler:
 
         exc_expected = exc_handler.expect_outermost_exc()
 
-        self.expect_to_exit_on_error(
+        self._expect_to_exit_on_error(
             ctx_ids=reversed(entered_ctx_ids),
             exc_expected=exc_expected,
             exc_handler=exc_handler,
@@ -77,7 +77,7 @@ class ExitHandler:
     def expect_send_without_ctx(self) -> None:
         exc_handler: Optional[ExceptionHandler] = None
         exc_expected = wrap_exc(StopIteration())
-        self.expect_to_exit_on_error(
+        self._expect_to_exit_on_error(
             ctx_ids=[], exc_expected=exc_expected, exc_handler=exc_handler
         )
 
@@ -89,7 +89,7 @@ class ExitHandler:
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != exiting_ctx_id]
         exc_handler: Optional[ExceptionHandler] = None
         exc_expected = wrap_exc(StopIteration())
-        self.expect_to_exit_on_error(
+        self._expect_to_exit_on_error(
             ctx_ids=[exiting_ctx_id, *reversed(suspended_ctx_ids)],
             exc_expected=exc_expected,
             exc_handler=exc_handler,
@@ -116,13 +116,13 @@ class ExitHandler:
             exp_on_handle = wrap_exc(StopIteration())
             exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
 
-        self.expect_to_exit_on_error(
+        self._expect_to_exit_on_error(
             ctx_ids=[raising_ctx_id, *reversed(suspended_ctx_ids)],
             exc_expected=exc_expected,
             exc_handler=exc_handler,
         )
 
-    def expect_to_exit_on_error(
+    def _expect_to_exit_on_error(
         self,
         ctx_ids: Iterable[CtxId],
         exc_expected: ExceptionExpectation,
