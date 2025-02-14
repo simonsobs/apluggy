@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from functools import partial
 from typing import Optional, Union
 
 from hypothesis import strategies as st
@@ -17,9 +18,18 @@ class ExitHandler:
         enabled_except_actions_on_raised: Sequence[ExceptActionName],
     ) -> None:
         self._draw = data.draw
-        self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
-        self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
-        self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
+        self._st_exc_handler_on_enter = partial(
+            st_exception_handler,
+            enabled_actions=enabled_except_actions_on_enter,
+        )
+        self._st_exc_handler_on_sent = partial(
+            st_exception_handler,
+            enabled_actions=enabled_except_actions_on_sent,
+        )
+        self._st_exc_handler_on_raised = partial(
+            st_exception_handler,
+            enabled_actions=enabled_except_actions_on_raised,
+        )
         self.clear()
 
     def clear(self) -> None:
@@ -39,11 +49,7 @@ class ExitHandler:
         suspended_ctx_ids = ctx_ids_reversed[1:]
 
         exc_handler = self._draw(
-            st_exception_handler(
-                exp=exp_exc,
-                ids=suspended_ctx_ids,
-                enabled_actions=self._enabled_except_actions_on_enter,
-            )
+            self._st_exc_handler_on_enter(exp=exp_exc, ids=suspended_ctx_ids)
         )
 
         exp_on_handle = wrap_exc(GeneratorDidNotYield)
@@ -60,11 +66,7 @@ class ExitHandler:
     ):
         '''An exception is raised in the `with` block.'''
         exc_handler = self._draw(
-            st_exception_handler(
-                exp=exp_exc,
-                ids=reversed(entered_ctx_ids),
-                enabled_actions=self._enabled_except_actions_on_raised,
-            )
+            self._st_exc_handler_on_raised(exp=exp_exc, ids=reversed(entered_ctx_ids))
         )
 
         exc_expected = exc_handler.expect_outermost_exc()
@@ -106,10 +108,8 @@ class ExitHandler:
             self._expect_to_exit_on_error(ctx_ids=ctx_ids, exc_expected=exp_exc)
         else:
             exc_handler = self._draw(
-                st_exception_handler(
-                    exp=exp_exc,
-                    ids=reversed(suspended_ctx_ids),
-                    enabled_actions=self._enabled_except_actions_on_sent,
+                self._st_exc_handler_on_sent(
+                    exp=exp_exc, ids=reversed(suspended_ctx_ids)
                 )
             )
             exp_on_handle = wrap_exc(StopIteration())
