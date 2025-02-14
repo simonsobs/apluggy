@@ -125,26 +125,32 @@ def st_action_map(
 ) -> 'ActionMapMap':
     ctx_ids = list(ctx_ids)
 
-    @st.composite
-    def _st_map(draw: st.DrawFn) -> _ActionMap:
-        st_actions = st.sampled_from(enabled_actions)
-        actions: list[CtxActionName] = draw(
-            st_list_until(st_actions, last={'raise', 'exit'}, max_size=len(ctx_ids))
-        )
-
-        def _action_item(id: CtxId, action: CtxActionName) -> _ActionItem:
-            if action == 'raise':
-                return ('raise', MockException(f'{id}'))
-            if action == 'yield':
-                return ('yield', f'yield-{id}')
-            if action == 'exit':
-                return ('exit', None)
-            raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
-
-        return {id: _action_item(id, a) for id, a in zip(ctx_ids, actions)}
-
-    map_ = draw(_st_map())
+    map_ = draw(_st_map(ctx_ids, enabled_actions))
     return ActionMapMap(map_)
+
+
+@st.composite
+def _st_map(
+    draw: st.DrawFn,
+    ctx_ids: Iterable[CtxId],
+    enabled_actions: Sequence[CtxActionName],
+) -> _ActionMap:
+    ctx_ids = list(ctx_ids)
+    st_actions = st.sampled_from(enabled_actions)
+    actions: list[CtxActionName] = draw(
+        st_list_until(st_actions, last={'raise', 'exit'}, max_size=len(ctx_ids))
+    )
+
+    def _action_item(id: CtxId, action: CtxActionName) -> _ActionItem:
+        if action == 'raise':
+            return ('raise', MockException(f'{id}'))
+        if action == 'yield':
+            return ('yield', f'yield-{id}')
+        if action == 'exit':
+            return ('exit', None)
+        raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
+
+    return {id: _action_item(id, a) for id, a in zip(ctx_ids, actions)}
 
 
 class ActionMapMap(ActionMap):
