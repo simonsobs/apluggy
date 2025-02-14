@@ -84,7 +84,7 @@ class MockContext:
     def before_enter(self) -> None:
         self._clear()
 
-        if not self._created.ctx_ids:
+        if not self._created:
             self._entered = Entered()
             return
 
@@ -122,7 +122,7 @@ class MockContext:
     def before_send(self, sent: str) -> None:
         self._clear()
 
-        if not self._created.ctx_ids:
+        if not self._created:
             self._exit_handler.expect_send_without_ctx()
             return
 

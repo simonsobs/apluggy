@@ -11,6 +11,9 @@ class Created:
         self._ctxs: list[GenCtxMngr] = []
         self._new_ctx_id = ContextIdGenerator()
 
+    def __len__(self) -> int:
+        return len(self._ctx_ids)
+
     @property
     def ctx_ids(self) -> list[CtxId]:
         return list(self._ctx_ids)
