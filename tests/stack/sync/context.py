@@ -11,7 +11,7 @@ from .action import CTX_ACTIONS, ContextActionStrategy, CtxActionName
 from .exc import wrap_exc
 from .except_ import EXCEPT_ACTIONS, ExceptActionName
 from .exit_ import ExitHandler
-from .states import Created, Entered, Sent, SentNull
+from .states import Created, Entered, Sent
 
 
 class MockContext:
@@ -45,7 +45,7 @@ class MockContext:
 
     def _clear(self) -> None:
         self._act_strat.clear()
-        self._sent: Sent = SentNull()
+        self._sent: Optional[Sent] = None
         self._exit_handler.clear()
 
     def __call__(self) -> GenCtxMngr[str]:
@@ -63,7 +63,8 @@ class MockContext:
                     elif action_item[0] == 'yield':
                         try:
                             sent = yield action_item[1]
-                            self._sent.add(sent)
+                            if self._sent:
+                                self._sent.add(sent)
                         except Exception as e:
                             note(f'{ctx_id=} except: {e=}')
                             self._exit_handler.on_error(ctx_id, e)
@@ -149,6 +150,7 @@ class MockContext:
     def on_sent(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_sent()
         assert not self._act_strat
+        assert self._sent
         self._sent.assert_on_sent(yields)
 
     def before_raise(self, exc: Exception) -> None:

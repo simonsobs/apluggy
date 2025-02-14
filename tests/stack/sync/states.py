@@ -60,14 +60,3 @@ class Sent:
         assert len(self._sent_actual) == len(self._yields_expected)
         assert set(self._sent_actual) == {self._sent_expected}
         assert list(yields) == self._yields_expected
-
-
-class SentNull(Sent):
-    def __init__(self) -> None:
-        pass
-
-    def add(self, sent: str) -> None:
-        pass
-
-    def assert_on_sent(self, yields: Iterable[str]) -> None:
-        assert False  # pragma: no cover
