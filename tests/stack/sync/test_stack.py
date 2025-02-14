@@ -14,7 +14,8 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .context import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext, MockException
+from .context import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
+from .exc import MockException
 from .refs import Stack, dunder_enter, exit_stack, nested_with
 
 ExitActionName: TypeAlias = Literal['exit', 'raise']
