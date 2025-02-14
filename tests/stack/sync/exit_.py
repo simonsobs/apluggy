@@ -25,9 +25,9 @@ class ExitHandler:
         self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
         self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
         self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
-        self._clear()
+        self.clear()
 
-    def _clear(self) -> None:
+    def clear(self) -> None:
         self._expected: Optional[_Expected] = None
         self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
         self._ctx_ids: list[CtxId] = []
