@@ -57,12 +57,12 @@ class Sent:
     def __init__(self, sent_expected: str, yields_expected: Iterable[str]) -> None:
         self._sent_expected = sent_expected
         self._yields_expected = list(yields_expected)
-        self._sent_actual: list[str] = []
+        self._count = 0
 
     def add(self, sent: str) -> None:
-        self._sent_actual.append(sent)
+        assert sent == self._sent_expected
+        self._count += 1
 
     def assert_on_sent(self, yields: Iterable[str]) -> None:
-        assert len(self._sent_actual) == len(self._yields_expected)
-        assert set(self._sent_actual) == {self._sent_expected}
+        assert self._count == len(self._yields_expected)
         assert list(yields) == self._yields_expected
