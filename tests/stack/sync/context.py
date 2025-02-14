@@ -2,7 +2,6 @@ from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from typing import Optional
 
-from hypothesis import note
 from hypothesis import strategies as st
 
 from apluggy.stack import GenCtxMngr
@@ -55,7 +54,6 @@ class MockContext:
             try:
                 while True:
                     action_item = self._act_strat.pop(ctx_id)
-                    note(f'{ctx_id=} {action_item=}')
                     if action_item[0] == 'raise':
                         raise action_item[1]
                     elif action_item[0] == 'exit':
@@ -66,7 +64,6 @@ class MockContext:
                             if self._sent:
                                 self._sent.add(sent)
                         except Exception as e:
-                            note(f'{ctx_id=} except: {e=}')
                             self._exit_handler.on_error(ctx_id, e)
                             break
                     else:  # pragma: no cover
@@ -84,6 +81,7 @@ class MockContext:
     def before_enter(self) -> None:
         self._clear()
 
+        # Expect to enter when no context is created.
         if not self._created:
             self._entered = Entered()
             return
@@ -91,28 +89,28 @@ class MockContext:
         self._act_strat.before_enter(self._created.ctx_ids)
 
         last_action_item = self._act_strat.last_action_item
+
+        # Expect to enter if all contexts yield.
         if last_action_item[0] == 'yield':
-            # All actions are `yield` when the last action is `yield`.
-            yields_expected = self._act_strat.yields
-            self._entered = Entered(
-                ctx_ids_expected=self._created.ctx_ids,
-                yields_expected=yields_expected,
-            )
+            self._entered = Entered(self._created.ctx_ids, self._act_strat.yields)
             return
 
         entered_ctx_ids = self._act_strat.ctx_ids
+
+        # Expect to fail to enter if a context exits.
         if last_action_item[0] == 'exit':
             self._entered = Entered()
             self._exit_handler.expect_exit_on_enter(entered_ctx_ids)
             return
 
+        # Expect to fail to enter if a context raises an exception.
         if last_action_item[0] == 'raise':
             self._entered = Entered()
             exp_exc = wrap_exc(last_action_item[1])
             self._exit_handler.expect_raise_on_enter(entered_ctx_ids, exp_exc)
             return
 
-        raise ValueError(f'Unknown action: {last_action_item[0]!r}')
+        raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
 
     def on_entered(self, yields: Iterable[str]) -> None:
         self._exit_handler.assert_on_entered()
