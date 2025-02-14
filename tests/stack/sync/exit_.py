@@ -28,13 +28,13 @@ class ExitHandler:
         self._ctx_ids: list[CtxId] = []
 
     def expect_exit_on_enter(self, entered_ctx_ids: Sequence[CtxId]) -> None:
-        # The last entered context exits without yielding.
+        '''A context exits without yielding on enter.'''
         self.expect_raise_on_enter(entered_ctx_ids, wrap_exc(GeneratorDidNotYield))
 
     def expect_raise_on_enter(
         self, entered_ctx_ids: Sequence[CtxId], exp_exc: ExceptionExpectation
     ) -> None:
-        # The last entered context raises an exception.
+        '''A context raises an exception on enter.'''
         ctx_ids_reversed = list(reversed(entered_ctx_ids))
         suspended_ctx_ids = ctx_ids_reversed[1:]
 
@@ -58,6 +58,7 @@ class ExitHandler:
     def expect_raise_in_with_block(
         self, entered_ctx_ids: Sequence[CtxId], exp_exc: ExceptionExpectation
     ):
+        '''An exception is raised in the `with` block.'''
         exc_handler = self._draw(
             st_exception_handler(
                 exp=exp_exc,
@@ -75,6 +76,7 @@ class ExitHandler:
         )
 
     def expect_send_without_ctx(self) -> None:
+        '''`gen.send()` is called while no context is entered.'''
         exc_expected = wrap_exc(StopIteration())
         self._expect_to_exit_on_error(ctx_ids=[], exc_expected=exc_expected)
 
@@ -83,6 +85,7 @@ class ExitHandler:
         exiting_ctx_id: CtxId,
         entered_ctx_ids: Sequence[CtxId],
     ) -> None:
+        '''A context exits without yielding on sent.'''
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != exiting_ctx_id]
         exc_expected = wrap_exc(StopIteration())
         self._expect_to_exit_on_error(
@@ -96,6 +99,7 @@ class ExitHandler:
         entered_ctx_ids: Sequence[CtxId],
         exp_exc: ExceptionExpectation,
     ) -> None:
+        '''A context raises an exception on sent.'''
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != raising_ctx_id]
         ctx_ids = [raising_ctx_id, *reversed(suspended_ctx_ids)]
         if not suspended_ctx_ids:
@@ -124,6 +128,7 @@ class ExitHandler:
         self._exc_handler = exc_handler
 
     def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
+        '''All contexts exit without raising an exception.'''
         self._expected = _Expected(ctx_ids)
 
     def on_error(self, id: CtxId, exc: Exception) -> None:
