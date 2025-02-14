@@ -132,7 +132,7 @@ class MockContext:
 
         ctx_id = self._ctx_action.last_ctx_id
 
-        # Expect to exit if a contest exits.
+        # Expect to exit if a context exits.
         if last_action_item[0] == 'exit':
             self._exit_handler.expect_exit_on_sent(ctx_id, self._entered.ctx_ids)
             return
