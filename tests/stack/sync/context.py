@@ -68,13 +68,33 @@ class ActionMapExit(ActionMap):
 
 @st.composite
 def st_action_map(
-    draw: st.DrawFn, ids: Iterable[CtxId], enabled_actions: Sequence[CtxActionName]
-) -> 'ActionMapDraw':
-    action_map = draw(_st_ctx_action_map(ids, enabled_actions))
-    return ActionMapDraw(action_map)
+    draw: st.DrawFn, ctx_ids: Iterable[CtxId], enabled_actions: Sequence[CtxActionName]
+) -> 'ActionMapMap':
+    ctx_ids = list(ctx_ids)
+
+    @st.composite
+    def _st_map(draw: st.DrawFn) -> _ActionMap:
+        st_actions = st.sampled_from(enabled_actions)
+        actions: list[CtxActionName] = draw(
+            st_list_until(st_actions, last={'raise', 'exit'}, max_size=len(ctx_ids))
+        )
+
+        def _action_item(id: CtxId, action: CtxActionName) -> _ActionItem:
+            if action == 'raise':
+                return ('raise', MockException(f'{id}'))
+            if action == 'yield':
+                return ('yield', f'yield-{id}')
+            if action == 'exit':
+                return ('exit', None)
+            raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
+
+        return {id: _action_item(id, a) for id, a in zip(ctx_ids, actions)}
+
+    map_ = draw(_st_map())
+    return ActionMapMap(map_)
 
 
-class ActionMapDraw(ActionMap):
+class ActionMapMap(ActionMap):
     def __init__(self, action_map: _ActionMap) -> None:
         self._map = action_map
 
@@ -259,25 +279,3 @@ class MockContext:
     def on_exited(self, exc: Optional[BaseException] = None) -> None:
         assert not self._action_map
         self._exit_handler.assert_on_exited(exc)
-
-
-@st.composite
-def _st_ctx_action_map(
-    draw: st.DrawFn, ids: Iterable[CtxId], enabled_actions: Sequence[CtxActionName]
-) -> _ActionMap:
-    ids = list(ids)
-    st_actions = st.sampled_from(enabled_actions)
-    actions: list[CtxActionName] = draw(
-        st_list_until(st_actions, last={'raise', 'exit'}, max_size=len(ids))
-    )
-
-    def _action_item(id: CtxId, action: CtxActionName) -> _ActionItem:
-        if action == 'raise':
-            return ('raise', MockException(f'{id}'))
-        if action == 'yield':
-            return ('yield', f'yield-{id}')
-        if action == 'exit':
-            return ('exit', None)
-        raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
-
-    return {id: _action_item(id, a) for id, a in zip(ids, actions)}
