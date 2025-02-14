@@ -122,27 +122,33 @@ class MockContext:
     def before_send(self, sent: str) -> None:
         self._clear()
 
-        if not self._created:
+        # Expect to exit if no context is entered.
+        if not self._entered:
             self._exit_handler.expect_send_without_ctx()
             return
 
-        self._act_strat.before_send(reversed(self._created.ctx_ids))
+        self._act_strat.before_send(reversed(self._entered.ctx_ids))
 
-        id = self._act_strat.last_ctx_id
         last_action_item = self._act_strat.last_action_item
+
+        # Expect `gen.send()` to return if all contexts yield.
         if last_action_item[0] == 'yield':
-            # All actions are `yield` when the last action is `yield`.
-            yields_expected = self._act_strat.yields
-            self._sent = Sent(sent_expected=sent, yields_expected=yields_expected)
+            self._sent = Sent(sent, self._act_strat.yields)
             return
 
+        ctx_id = self._act_strat.last_ctx_id
+
+        # Expect to exit if a contest exits.
         if last_action_item[0] == 'exit':
-            self._exit_handler.expect_exit_on_sent(id, self._entered.ctx_ids)
+            self._exit_handler.expect_exit_on_sent(ctx_id, self._entered.ctx_ids)
             return
 
+        # Expect to exit if a context raises an exception.
         if last_action_item[0] == 'raise':
             exp_exc = wrap_exc(last_action_item[1])
-            self._exit_handler.expect_raise_on_sent(id, self._entered.ctx_ids, exp_exc)
+            self._exit_handler.expect_raise_on_sent(
+                ctx_id, self._entered.ctx_ids, exp_exc
+            )
             return
 
         raise ValueError(f'Unknown action: {last_action_item[0]!r}')  # pragma: no cover
