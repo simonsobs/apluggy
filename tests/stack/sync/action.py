@@ -1,7 +1,6 @@
 import sys
-from abc import ABC, abstractmethod
 from collections.abc import Iterable, MutableMapping, Sequence
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from hypothesis import strategies as st
 
@@ -42,98 +41,58 @@ class ContextActionStrategy:
         self.clear()
 
     def clear(self) -> None:
-        self._map: ActionMap = ActionMapNull()
+        self._map: Optional[_ActionMap] = None
 
     def __len__(self) -> int:
+        if self._map is None:
+            return 0
         return len(self._map)
 
     def before_enter(self, ctx_ids: Iterable[CtxId]) -> None:
         self._map = self._draw(
-            st_action_map(ctx_ids, enabled_actions=self._enabled_actions_on_enter)
+            _st_action_map(ctx_ids, enabled_actions=self._enabled_actions_on_enter)
         )
 
     def before_send(self, ctx_ids: Iterable[CtxId]) -> None:
         self._map = self._draw(
-            st_action_map(ctx_ids, enabled_actions=self._enabled_actions_on_sent)
+            _st_action_map(ctx_ids, enabled_actions=self._enabled_actions_on_sent)
         )
 
     def before_raise(self, exc: Exception) -> None:
-        self._map = ActionMapExit()
+        self._map = {}  # Let pop() return ('exit', None)
 
     def before_exit(self) -> None:
-        self._map = ActionMapExit()
+        self._map = {}  # Let pop() return ('exit', None)
 
     def pop(self, ctx_id: CtxId) -> _ActionItem:
-        return self._map.pop(ctx_id)
+        if self._map is None:  # pragma: no cover
+            raise KeyError(ctx_id)
+        return self._map.pop(ctx_id, ('exit', None))
 
     @property
     def last_ctx_id(self) -> CtxId:
-        assert isinstance(self._map, ActionMapMap)
-        return self._map.last_ctx_id
+        assert self._map is not None
+        return list(self._map.keys())[-1]
 
     @property
     def last_action_item(self) -> _ActionItem:
-        assert isinstance(self._map, ActionMapMap)
-        return self._map.last_action_item
+        assert self._map is not None
+        return list(self._map.values())[-1]
 
     @property
     def yields(self) -> tuple[str, ...]:
-        assert isinstance(self._map, ActionMapMap)
-        return self._map.yields
+        assert self._map is not None
+        return tuple(e[1] for e in self._map.values() if e[0] == 'yield')
 
     @property
     def ctx_ids(self) -> list[CtxId]:
-        assert isinstance(self._map, ActionMapMap)
-        return self._map.ctx_ids
-
-
-class ActionMap(ABC):
-    @abstractmethod
-    def __len__(self) -> int:
-        pass
-
-    @abstractmethod
-    def pop(self, ctx_id: CtxId) -> _ActionItem:
-        pass
-
-
-class ActionMapNull(ActionMap):
-    def __init__(self) -> None:
-        pass
-
-    def __len__(self) -> int:
-        return 0
-
-    def pop(self, ctx_id: CtxId) -> _ActionItem:
-        assert False
-
-
-class ActionMapExit(ActionMap):
-    def __init__(self) -> None:
-        pass
-
-    def __len__(self) -> int:
-        return 0
-
-    def pop(self, ctx_id: CtxId) -> _ActionItem:
-        return ('exit', None)
+        assert self._map is not None
+        return list(self._map.keys())
 
 
 @st.composite
-def st_action_map(
+def _st_action_map(
     draw: st.DrawFn, ctx_ids: Iterable[CtxId], enabled_actions: Sequence[CtxActionName]
-) -> 'ActionMapMap':
-    ctx_ids = list(ctx_ids)
-
-    map_ = draw(_st_map(ctx_ids, enabled_actions))
-    return ActionMapMap(map_)
-
-
-@st.composite
-def _st_map(
-    draw: st.DrawFn,
-    ctx_ids: Iterable[CtxId],
-    enabled_actions: Sequence[CtxActionName],
 ) -> _ActionMap:
     ctx_ids = list(ctx_ids)
     st_actions = st.sampled_from(enabled_actions)
@@ -151,30 +110,3 @@ def _st_map(
         raise ValueError(f'Unknown action: {action!r}')  # pragma: no cover
 
     return {id: _action_item(id, a) for id, a in zip(ctx_ids, actions)}
-
-
-class ActionMapMap(ActionMap):
-    def __init__(self, action_map: _ActionMap) -> None:
-        self._map = action_map
-
-    def __len__(self) -> int:
-        return len(self._map)
-
-    def pop(self, ctx_id: CtxId) -> _ActionItem:
-        return self._map.pop(ctx_id, ('exit', None))
-
-    @property
-    def last_ctx_id(self) -> CtxId:
-        return list(self._map.keys())[-1]
-
-    @property
-    def last_action_item(self) -> _ActionItem:
-        return list(self._map.values())[-1]
-
-    @property
-    def yields(self) -> tuple[str, ...]:
-        return tuple(e[1] for e in self._map.values() if e[0] == 'yield')
-
-    @property
-    def ctx_ids(self) -> list[CtxId]:
-        return list(self._map.keys())
