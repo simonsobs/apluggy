@@ -25,8 +25,11 @@ class ExitHandler:
         self._enabled_except_actions_on_enter = enabled_except_actions_on_enter
         self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
         self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
+        self._clear()
 
+    def _clear(self) -> None:
         self._expected: Optional[_Expected] = None
+        self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
         self._ctx_ids: list[CtxId] = []
 
     def expect_exit_on_enter(self, entered_ctx_ids: Sequence[CtxId]) -> None:
@@ -135,7 +138,6 @@ class ExitHandler:
 
     def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
         self._expected = _Expected(ctx_ids)
-        self._exc_handler = ExceptionHandlerNull()
 
     def on_error(self, id: CtxId, exc: Exception) -> None:
         self._exc_handler.handle(id, exc)
