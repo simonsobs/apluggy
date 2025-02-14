@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import Union
+from typing import Optional, Union
 
 from hypothesis import strategies as st
 
@@ -26,7 +26,7 @@ class ExitHandler:
         self._enabled_except_actions_on_sent = enabled_except_actions_on_sent
         self._enabled_except_actions_on_raised = enabled_except_actions_on_raised
 
-        self._to_be_exited = False
+        self._expected: Optional[_Expected] = None
         self._ctx_ids: list[CtxId] = []
 
     def expect_exit_on_enter(self, entered_ctx_ids: Sequence[CtxId]) -> None:
@@ -130,15 +130,11 @@ class ExitHandler:
         exc_expected: ExceptionExpectation,
         exc_handler: ExceptionHandler,
     ) -> None:
-        self._to_be_exited = True
-        self._ctx_ids_expected = list(ctx_ids)
-        self._exc_expected = exc_expected
+        self._expected = _Expected(ctx_ids, exc_expected)
         self._exc_handler = exc_handler
 
     def expect_to_exit(self, ctx_ids: Iterable[CtxId]) -> None:
-        self._to_be_exited = True
-        self._ctx_ids_expected = list(ctx_ids)
-        self._exc_expected = wrap_exc(None)
+        self._expected = _Expected(ctx_ids)
         self._exc_handler = ExceptionHandlerNull()
 
     def on_error(self, id: CtxId, exc: Exception) -> None:
@@ -148,13 +144,29 @@ class ExitHandler:
         self._ctx_ids.append(ctx_id)
 
     def assert_on_entered(self) -> None:
-        assert not self._to_be_exited
+        assert not self._expected
 
     def assert_on_sent(self) -> None:
-        assert not self._to_be_exited
+        assert not self._expected
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
-        assert self._to_be_exited
-        assert self._ctx_ids == self._ctx_ids_expected
-        assert self._exc_expected == exc
+        assert self._expected
+        self._expected.assert_on_exited(self._ctx_ids, exc)
         self._exc_handler.assert_on_exited(exc)
+
+
+class _Expected:
+    def __init__(
+        self, ctx_ids: Iterable[CtxId], exc: Optional[ExceptionExpectation] = None
+    ):
+        self._ctx_ids = list(ctx_ids)
+
+        if exc is None:
+            exc = wrap_exc(None)
+        self._exc = exc
+
+    def assert_on_exited(
+        self, ctx_ids: Iterable[CtxId], exc: Optional[BaseException] = None
+    ) -> None:
+        assert self._ctx_ids == list(ctx_ids)
+        assert self._exc == exc
