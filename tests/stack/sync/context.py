@@ -23,22 +23,18 @@ class MockContext:
         enabled_except_actions_on_sent: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
         enabled_except_actions_on_raised: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
     ) -> None:
-        self._data = data
         self._draw = data.draw
-
         self._ctx_action = ContextActionStrategy(
             data,
             enabled_actions_on_enter=enabled_ctx_actions_on_enter,
             enabled_actions_on_sent=enabled_ctx_actions_on_sent,
         )
-
         self._exit_handler = ExitHandler(
-            self._data,
+            data,
             enabled_except_actions_on_enter=enabled_except_actions_on_enter,
             enabled_except_actions_on_sent=enabled_except_actions_on_sent,
             enabled_except_actions_on_raised=enabled_except_actions_on_raised,
         )
-
         self._created = Created()
         self._clear()
 
