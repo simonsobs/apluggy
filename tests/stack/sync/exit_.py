@@ -5,12 +5,7 @@ from hypothesis import strategies as st
 
 from .ctx_id import CtxId
 from .exc import ExceptionExpectation, GeneratorDidNotYield, wrap_exc
-from .except_ import (
-    ExceptActionName,
-    ExceptionHandler,
-    ExceptionHandlerNull,
-    st_exception_handler,
-)
+from .except_ import ExceptActionName, ExceptionHandler, st_exception_handler
 
 
 class ExitHandler:
@@ -29,7 +24,7 @@ class ExitHandler:
 
     def clear(self) -> None:
         self._expected: Optional[_Expected] = None
-        self._exc_handler: ExceptionHandler = ExceptionHandlerNull()
+        self._exc_handler: Optional[ExceptionHandler] = None
         self._ctx_ids: list[CtxId] = []
 
     def expect_exit_on_enter(self, entered_ctx_ids: Sequence[CtxId]) -> None:
@@ -80,7 +75,7 @@ class ExitHandler:
         )
 
     def expect_send_without_ctx(self) -> None:
-        exc_handler = ExceptionHandlerNull()
+        exc_handler: Optional[ExceptionHandler] = None
         exc_expected = wrap_exc(StopIteration())
         self.expect_to_exit_on_error(
             ctx_ids=[], exc_expected=exc_expected, exc_handler=exc_handler
@@ -92,7 +87,7 @@ class ExitHandler:
         entered_ctx_ids: Sequence[CtxId],
     ) -> None:
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != exiting_ctx_id]
-        exc_handler = ExceptionHandlerNull()
+        exc_handler: Optional[ExceptionHandler] = None
         exc_expected = wrap_exc(StopIteration())
         self.expect_to_exit_on_error(
             ctx_ids=[exiting_ctx_id, *reversed(suspended_ctx_ids)],
@@ -108,7 +103,7 @@ class ExitHandler:
     ) -> None:
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != raising_ctx_id]
         if not suspended_ctx_ids:
-            exc_handler: ExceptionHandler = ExceptionHandlerNull()
+            exc_handler: Optional[ExceptionHandler] = None
             exc_expected = exp_exc
         else:
             exc_handler = self._draw(
@@ -131,7 +126,7 @@ class ExitHandler:
         self,
         ctx_ids: Iterable[CtxId],
         exc_expected: ExceptionExpectation,
-        exc_handler: ExceptionHandler,
+        exc_handler: Optional[ExceptionHandler],
     ) -> None:
         self._expected = _Expected(ctx_ids, exc_expected)
         self._exc_handler = exc_handler
@@ -140,6 +135,7 @@ class ExitHandler:
         self._expected = _Expected(ctx_ids)
 
     def on_error(self, id: CtxId, exc: Exception) -> None:
+        assert self._exc_handler
         self._exc_handler.handle(id, exc)
 
     def on_exiting(self, ctx_id: CtxId) -> None:
@@ -154,7 +150,8 @@ class ExitHandler:
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         assert self._expected
         self._expected.assert_on_exited(self._ctx_ids, exc)
-        self._exc_handler.assert_on_exited(exc)
+        if self._exc_handler:
+            self._exc_handler.assert_on_exited(exc)
 
 
 class _Expected:

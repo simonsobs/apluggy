@@ -168,20 +168,3 @@ def _expect_last_exc(
         if action == 'raise':
             return wrap_exc(exc1)
     return exp_on_reraise
-
-
-class ExceptionHandlerNull(ExceptionHandler):
-    def __init__(self) -> None:
-        pass
-
-    def expect_outermost_exc(
-        self,
-        exp_on_handle: Optional[ExceptionExpectation] = None,
-    ) -> ExceptionExpectation:
-        return wrap_exc(None)
-
-    def handle(self, id: CtxId, exc: Exception) -> None:
-        assert False  # pragma: no cover
-
-    def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
-        assert True
