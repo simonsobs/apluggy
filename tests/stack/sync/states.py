@@ -38,6 +38,9 @@ class Entered:
         self._yields_expected = list(yields_expected)
         self._ctx_ids: list[CtxId] = []
 
+    def __len__(self) -> int:
+        return len(self._ctx_ids)
+
     @property
     def ctx_ids(self) -> list[CtxId]:
         return list(self._ctx_ids)
