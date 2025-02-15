@@ -14,7 +14,7 @@ T = TypeVar('T')
 def dunder_enter(
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool = True,
-    sequential: bool = False,
+    sequential: bool = True,
 ) -> AGenCtxMngr[list[T]]:
     ctxs = list(ctxs)
     # TODO: When Python 3.9 support is dropped
@@ -85,7 +85,7 @@ async def dunder_enter_single(
 async def dunder_enter_double(
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool,
-    sequential: bool = False,
+    sequential: bool = True,
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
     assert len(ctxs) == 2
@@ -147,7 +147,7 @@ async def dunder_enter_double(
 async def dunder_enter_triple(  # noqa: C901
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool,
-    sequential: bool = False,
+    sequential: bool = True,
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
     assert len(ctxs) == 3

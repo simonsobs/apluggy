@@ -15,7 +15,7 @@ T = TypeVar('T')
 async def async_stack_gen_ctxs(
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool = True,
-    sequential: bool = False,
+    sequential: bool = True,
 ) -> AsyncGenerator[list[T], Any]:
     '''Manage multiple async context managers with the support of the `gen` attribute.
 
