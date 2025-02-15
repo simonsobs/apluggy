@@ -1,5 +1,6 @@
-from collections.abc import Iterator
-from contextlib import contextmanager
+import asyncio
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from typing import ClassVar, Literal, Union
 
@@ -117,3 +118,35 @@ def _generator_did_not_yield() -> RuntimeError:
 
 
 GeneratorDidNotYield = _generator_did_not_yield()
+
+
+def _gen_send_without_yield() -> Exception:
+    @contextmanager
+    def ctx() -> Iterator[None]:
+        yield
+
+    exc: Exception
+    try:
+        with (c := ctx()):
+            c.gen.send(None)
+    except Exception as e:
+        exc = e
+    return exc
+
+
+async def _async_gen_asend_without_yield() -> Exception:
+    @asynccontextmanager
+    async def ctx() -> AsyncIterator[None]:
+        yield
+
+    exc: Exception
+    try:
+        async with (c := ctx()):
+            await c.gen.asend(None)
+    except Exception as e:
+        exc = e
+    return exc
+
+
+GenSendWithoutYield = _gen_send_without_yield()
+AsyncGenAsendWithoutYield = asyncio.run(_async_gen_asend_without_yield())
