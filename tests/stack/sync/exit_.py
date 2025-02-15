@@ -5,7 +5,13 @@ from typing import Optional, Union
 from hypothesis import strategies as st
 
 from .ctx_id import CtxId
-from .exc import ExceptionExpectation, GeneratorDidNotYield, wrap_exc
+from .exc import (
+    AsyncGenAsendWithoutYield,
+    ExceptionExpectation,
+    GeneratorDidNotYield,
+    GenSendWithoutYield,
+    wrap_exc,
+)
 from .except_ import ExceptActionName, ExceptionHandler, st_exception_handler
 
 
@@ -13,11 +19,15 @@ class ExitHandler:
     def __init__(
         self,
         data: st.DataObject,
+        async_: bool,
         enabled_except_actions_on_enter: Sequence[ExceptActionName],
         enabled_except_actions_on_sent: Sequence[ExceptActionName],
         enabled_except_actions_on_raised: Sequence[ExceptActionName],
     ) -> None:
         self._draw = data.draw
+        self._SendWithoutYield = (
+            AsyncGenAsendWithoutYield if async_ else GenSendWithoutYield
+        )
         self._st_exc_handler_on_enter = partial(
             st_exception_handler,
             enabled_actions=enabled_except_actions_on_enter,
@@ -83,7 +93,7 @@ class ExitHandler:
 
     def expect_send_without_ctx(self) -> None:
         '''`gen.send()` is called while no context is entered.'''
-        exc_expected = wrap_exc(StopIteration())
+        exc_expected = wrap_exc(self._SendWithoutYield)
         self._expected = _Expected([], exc_expected)
 
     def expect_exit_on_sent(
@@ -94,7 +104,7 @@ class ExitHandler:
         '''A context exits without yielding on sent.'''
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != exiting_ctx_id]
         ctx_ids = [exiting_ctx_id, *reversed(suspended_ctx_ids)]
-        exc_expected = wrap_exc(StopIteration())
+        exc_expected = wrap_exc(self._SendWithoutYield)
         self._expected = _Expected(ctx_ids, exc_expected)
 
     def expect_raise_on_sent(
