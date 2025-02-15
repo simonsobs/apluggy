@@ -1,7 +1,7 @@
 import sys
 import traceback
-from itertools import count
-from typing import Literal, Union
+from collections.abc import Sequence
+from typing import Literal
 
 from hypothesis import given, note, settings
 from hypothesis import strategies as st
@@ -14,57 +14,86 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .context import MockContext
+from .context import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
 from .exc import MockException
 from .refs import Stack, dunder_enter, exit_stack, nested_with
+
+ExitActionName: TypeAlias = Literal['exit', 'raise']
+EXIT_ACTIONS: Sequence[ExitActionName] = ('exit', 'raise')
 
 
 @settings(max_examples=2000)
 @given(data=st.data())
 def test_property(data: st.DataObject) -> None:
-    n_ctxs = data.draw(st.integers(min_value=0, max_value=6), label='n_ctxs')
-    gen_enabled = data.draw(st.booleans(), label='gen_enabled')
+    MAX_N_CTXS = 5
+    GEN_ENABLED = True
 
-    ActionName: TypeAlias = Literal['send', 'raise', 'break']
-    ACTIONS: tuple[ActionName, ...] = (
-        ('send', 'raise', 'break') if gen_enabled else ('raise', 'break')
+    MAX_N_SENDS = 4
+
+    ENABLED_CTX_ACTIONS_ON_ENTER = CTX_ACTIONS
+    ENABLED_EXCEPT_ACTIONS_ON_ENTER = EXCEPT_ACTIONS
+
+    ENABLED_CTX_ACTIONS_ON_SENT = CTX_ACTIONS
+    ENABLED_EXCEPT_ACTIONS_ON_SENT = EXCEPT_ACTIONS
+
+    ENABLED_EXIT_ACTIONS = EXIT_ACTIONS
+    ENABLED_EXCEPT_ACTIONS_ON_RAISED = EXCEPT_ACTIONS
+
+    #
+    n_ctxs = data.draw(st.integers(min_value=0, max_value=MAX_N_CTXS), label='n_ctxs')
+    gen_enabled = data.draw(
+        st.booleans() if GEN_ENABLED else st.just(False),
+        label='gen_enabled',
+    )
+    n_sends = data.draw(
+        st.integers(min_value=0, max_value=MAX_N_SENDS) if gen_enabled else st.just(0),
+        label='n_sends',
     )
 
-    def st_action() -> st.SearchStrategy[ActionName]:
-        return st.sampled_from(ACTIONS)
+    def st_exit_action() -> st.SearchStrategy[ExitActionName]:
+        return st.sampled_from(ENABLED_EXIT_ACTIONS)
 
     stack = data.draw(_st_stack(n_ctxs, gen_enabled), label='stack')
 
-    mock_context = MockContext(data=data)
+    mock_context = MockContext(
+        data=data,
+        enabled_ctx_actions_on_enter=ENABLED_CTX_ACTIONS_ON_ENTER,
+        enabled_except_actions_on_enter=ENABLED_EXCEPT_ACTIONS_ON_ENTER,
+        enabled_ctx_actions_on_sent=ENABLED_CTX_ACTIONS_ON_SENT,
+        enabled_except_actions_on_sent=ENABLED_EXCEPT_ACTIONS_ON_SENT,
+        enabled_except_actions_on_raised=ENABLED_EXCEPT_ACTIONS_ON_RAISED,
+    )
     ctxs = [mock_context() for _ in range(n_ctxs)]
 
     mock_context.assert_created(iter(ctxs))  # `iter()` to test with an iterable.
 
     mock_context.before_enter()
-    exc: Union[Exception, None] = None
     try:
         with (stacked := stack(iter(ctxs))) as y:
             mock_context.on_entered(yields=iter(y))
-            for i in count():  # pragma: no branch
-                action = data.draw(st_action())
-                if action == 'send':
-                    sent = f'sent-{i}'
-                    mock_context.before_send(sent)
-                    y = stacked.gen.send(sent)
-                    mock_context.on_sent(iter(y))
-                elif action == 'raise':
-                    exc0 = MockException('0')
-                    mock_context.before_raise(exc0)
-                    raise exc0
-                elif action == 'break':
-                    break
-                else:  # pragma: no cover
-                    raise ValueError(f'Unknown action: {action!r}')
-            mock_context.before_exit()
+
+            #
+            for i in range(n_sends):
+                sent = f'sent-{i}'
+                mock_context.before_send(sent)
+                y = stacked.gen.send(sent)
+                mock_context.on_sent(iter(y))
+
+            #
+            exit_action = data.draw(st_exit_action())
+            if exit_action == 'raise':
+                exc_raised = MockException('raised')
+                mock_context.before_raise(exc_raised)
+                raise exc_raised
+            elif exit_action == 'exit':
+                mock_context.before_exit()
+            else:  # pragma: no cover
+                raise ValueError(f'Unknown exit action: {exit_action!r}')
     except Exception as e:
         note(traceback.format_exc())
-        exc = e
-    mock_context.on_exited(exc=exc)
+        mock_context.on_exited(exc=e)
+    else:
+        mock_context.on_exited()
 
 
 def _st_stack(n_ctxs: int, gen_enabled: bool) -> st.SearchStrategy[Stack]:
