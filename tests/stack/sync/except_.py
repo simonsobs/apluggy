@@ -72,18 +72,18 @@ class ExceptionHandler:
     ) -> ExceptionExpectation:
         # From the innermost to the outermost.
         action_items = reversed(list(self._action_map.values()))
+        exp_on_reraise = self._exp
         if exp_on_handle is None:
             exp_on_handle = wrap_exc(None)
-        return _expect_last_exc(
-            action_items, exp_on_reraise=self._exp, exp_on_handle=exp_on_handle
-        )
+        for action, exc in action_items:
+            if action == 'handle':
+                return exp_on_handle
+            if action == 'raise':
+                return wrap_exc(exc)
+        return exp_on_reraise
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         assert not self._action_map
-        self._assert_raised()
-
-    def _assert_raised(self) -> None:
-        note(f'{self._actual=!r} {self._expected=!r}')
         assert self._actual == list(self._expected)
 
 
@@ -155,16 +155,3 @@ def _compose_expected(
     #     (1, ExceptionExpectation(MockException('2'), method='is')),
     # )
     return tuple(ret)
-
-
-def _expect_last_exc(
-    action_items: Iterable[_ActionItem],
-    exp_on_reraise: ExceptionExpectation,
-    exp_on_handle: ExceptionExpectation,
-) -> ExceptionExpectation:
-    for action, exc1 in action_items:
-        if action == 'handle':
-            return exp_on_handle
-        if action == 'raise':
-            return wrap_exc(exc1)
-    return exp_on_reraise
