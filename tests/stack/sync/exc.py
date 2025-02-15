@@ -4,19 +4,6 @@ from dataclasses import dataclass
 from typing import ClassVar, Literal, Union
 
 
-class Thrown(Exception):
-    '''To be thrown to the context manager.
-
-    An argument of `contextmanager.gen.throw()`.
-    '''
-
-    pass
-
-
-class Raised(Exception):
-    pass
-
-
 class MockException(Exception):
     pass
 
