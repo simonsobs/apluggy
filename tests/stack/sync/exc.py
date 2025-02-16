@@ -156,16 +156,23 @@ async def _async_gen_raise_on_asend() -> Exception:
         yield
         raise raised
 
-    exc: Exception
+    caught_within: Exception
+    caught_on_exit: Exception
     try:
         async with (c := ctx()):
             try:
                 await c.gen.asend(None)
             except Exception as e:
-                assert e is raised  # Still the same exception
+                caught_within = e
                 raise
     except Exception as e:
-        assert e is not raised  # No longer the same exception
+        caught_on_exit = e
+
+    assert caught_within is raised  # Still the same exception
+    assert caught_on_exit is not raised  # No longer the same exception
+
+    return caught_on_exit
+
         exc = e
     return exc
 
