@@ -2,19 +2,25 @@ from collections.abc import Iterable, Sequence
 from functools import partial
 from typing import Optional, Union
 
-from hypothesis import note
 from hypothesis import strategies as st
 
 from .ctx_id import CtxId
 from .exc import (
+    AsyncGenASendHandled,
     AsyncGenAsendWithoutYield,
     AsyncGenRaiseOnASend,
     ExceptionExpectation,
     GeneratorDidNotYield,
+    GenSendHandled,
     GenSendWithoutYield,
     wrap_exc,
 )
-from .except_ import ExceptActionName, ExceptionHandler, st_exception_handler
+from .except_ import (
+    ExceptActionName,
+    ExceptionHandler,
+    st_exception_handler,
+    st_exception_handler_async_asend,
+)
 
 
 class ExitHandler:
@@ -31,13 +37,21 @@ class ExitHandler:
         self._SendWithoutYield = (
             AsyncGenAsendWithoutYield if async_ else GenSendWithoutYield
         )
+        self._SendRaisedHandled = AsyncGenASendHandled if async_ else GenSendHandled
         self._st_exc_handler_on_enter = partial(
             st_exception_handler,
             enabled_actions=enabled_except_actions_on_enter,
         )
-        self._st_exc_handler_on_sent = partial(
-            st_exception_handler,
-            enabled_actions=enabled_except_actions_on_sent,
+        self._st_exc_handler_on_sent = (
+            partial(
+                st_exception_handler_async_asend,
+                enabled_actions=enabled_except_actions_on_sent,
+            )
+            if async_
+            else partial(
+                st_exception_handler,
+                enabled_actions=enabled_except_actions_on_sent,
+            )
         )
         self._st_exc_handler_on_raised = partial(
             st_exception_handler,
@@ -129,9 +143,12 @@ class ExitHandler:
                     exp=exp_exc, ids=reversed(suspended_ctx_ids)
                 )
             )
-            exp_on_handle = wrap_exc(StopIteration())
+            # exp_on_handle = wrap_exc(StopIteration())
+            exp_on_handle = wrap_exc(self._SendRaisedHandled)
             exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
             #
+            if self._async:
+                exc_expected = wrap_exc(AsyncGenRaiseOnASend)
             self._expected = _Expected(ctx_ids, exc_expected)
             self._exc_handler = exc_handler
 

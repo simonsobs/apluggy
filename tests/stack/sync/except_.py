@@ -38,6 +38,16 @@ def st_exception_handler(
     return ExceptionHandler(draw, exp, ids, enabled_actions)
 
 
+@st.composite
+def st_exception_handler_async_asend(
+    draw: st.DrawFn,
+    exp: ExceptionExpectation,
+    ids: Iterable[CtxId],
+    enabled_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
+) -> 'ExceptionHandler':
+    return ExceptionHandler(draw, exp, ids, enabled_actions, async_asend=True)
+
+
 class ExceptionHandler:
     def __init__(
         self,
@@ -45,6 +55,7 @@ class ExceptionHandler:
         exp: ExceptionExpectation,
         ids: Iterable[CtxId],
         enabled_actions: Sequence[ExceptActionName],
+        async_asend: bool = False,
     ) -> None:
         # The expected exception to be raised in the innermost context.
         self._exp = exp
@@ -52,7 +63,10 @@ class ExceptionHandler:
         self._action_map = draw(_st_action_map(ids, enabled_actions))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._expected = _compose_expected(exp, self._action_map)
+        if async_asend:
+            self._expected = _compose_expected_async_send(exp, self._action_map)
+        else:
+            self._expected = _compose_expected(exp, self._action_map)
         note(f'{self.__class__.__name__}: {self._expected=}')
 
         self._actual: list[tuple[CtxId, Exception]] = []
@@ -147,6 +161,45 @@ def _compose_expected(
         if action == 'raise':
             assert exc1 is not None
             exp = wrap_exc(exc1)
+
+    # e.g., (
+    #     (4, ExceptionExpectation(MockException('0'), method='is')),
+    #     (3, ExceptionExpectation(MockException('0'), method='is')),
+    #     (2, ExceptionExpectation(MockException('0'), method='is')),
+    #     (1, ExceptionExpectation(MockException('2'), method='is')),
+    # )
+    return tuple(ret)
+
+
+def _compose_expected_async_send(
+    exp: ExceptionExpectation, action_map: _ActionMap
+) -> tuple[tuple[CtxId, ExceptionExpectation], ...]:
+    '''Expected exceptions from the innermost to the outermost context.
+
+    This method relies on the order of the items in `action_map`.
+    '''
+    # e.g.:
+    # exp = ExceptionExpectation(MockException('0'), method='is')
+    # action_map = {
+    #     4: ('reraise', None),
+    #     3: ('reraise', None),
+    #     2: ('raise', MockException('2')),
+    #     1: ('handle', None),
+    # }
+
+    note(f'{action_map=}')
+    # exp = wrap_exc(AsyncGenRaiseOnASend)
+    exp = ExceptionExpectation(Exception(), method='type')
+
+    ret = list[tuple[CtxId, ExceptionExpectation]]()
+    for id, (action, exc1) in action_map.items():
+        ret.append((id, exp))
+        if action == 'handle':
+            break
+        if action == 'raise':
+            assert exc1 is not None
+            # exp = wrap_exc(exc1)
+            exp = ExceptionExpectation(Exception(), method='type')
 
     # e.g., (
     #     (4, ExceptionExpectation(MockException('0'), method='is')),
