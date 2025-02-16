@@ -64,7 +64,7 @@ class ExceptionHandler:
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
         if async_asend:
-            self._expected = _compose_expected_async_send(exp, self._action_map)
+            self._expected = _compose_expected_async_send(self._action_map)
         else:
             self._expected = _compose_expected(exp, self._action_map)
         note(f'{self.__class__.__name__}: {self._expected=}')
@@ -172,39 +172,20 @@ def _compose_expected(
 
 
 def _compose_expected_async_send(
-    exp: ExceptionExpectation, action_map: _ActionMap
+    action_map: _ActionMap,
 ) -> tuple[tuple[CtxId, ExceptionExpectation], ...]:
-    '''Expected exceptions from the innermost to the outermost context.
+    '''_compose_expected() for async send.
 
-    This method relies on the order of the items in `action_map`.
+    Currently, only expect `Exception` to be raised. Actual exceptions are
+    MockExceptions or RuntimeError.
     '''
-    # e.g.:
-    # exp = ExceptionExpectation(MockException('0'), method='is')
-    # action_map = {
-    #     4: ('reraise', None),
-    #     3: ('reraise', None),
-    #     2: ('raise', MockException('2')),
-    #     1: ('handle', None),
-    # }
 
-    note(f'{action_map=}')
-    # exp = wrap_exc(AsyncGenRaiseOnASend)
     exp = ExceptionExpectation(Exception(), method='type')
 
     ret = list[tuple[CtxId, ExceptionExpectation]]()
-    for id, (action, exc1) in action_map.items():
+    for id, (action, _) in action_map.items():
         ret.append((id, exp))
         if action == 'handle':
             break
-        if action == 'raise':
-            assert exc1 is not None
-            # exp = wrap_exc(exc1)
-            exp = ExceptionExpectation(Exception(), method='type')
 
-    # e.g., (
-    #     (4, ExceptionExpectation(MockException('0'), method='is')),
-    #     (3, ExceptionExpectation(MockException('0'), method='is')),
-    #     (2, ExceptionExpectation(MockException('0'), method='is')),
-    #     (1, ExceptionExpectation(MockException('2'), method='is')),
-    # )
     return tuple(ret)

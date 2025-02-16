@@ -27,24 +27,17 @@ EXIT_ACTIONS: Sequence[ExitActionName] = ('exit', 'raise')
 def test_property(data: st.DataObject) -> None:
     MAX_N_CTXS = 5
     GEN_ENABLED = True
-    # MAX_N_CTXS = 1
-    # GEN_ENABLED = False
 
     MAX_N_SENDS = 4
-    # MAX_N_SENDS = 0
 
     ENABLED_CTX_ACTIONS_ON_ENTER = CTX_ACTIONS
     ENABLED_EXCEPT_ACTIONS_ON_ENTER = EXCEPT_ACTIONS
-    # ENABLED_CTX_ACTIONS_ON_ENTER = ('yield', 'exit',)
-    # ENABLED_EXCEPT_ACTIONS_ON_ENTER = ('reraise',)
 
     ENABLED_CTX_ACTIONS_ON_SENT = CTX_ACTIONS
     ENABLED_EXCEPT_ACTIONS_ON_SENT = EXCEPT_ACTIONS
 
     ENABLED_EXIT_ACTIONS = EXIT_ACTIONS
     ENABLED_EXCEPT_ACTIONS_ON_RAISED = EXCEPT_ACTIONS
-    # ENABLED_EXIT_ACTIONS = ('exit',)
-    # ENABLED_EXCEPT_ACTIONS_ON_RAISED = ('reraise',)
 
     #
     n_ctxs = data.draw(st.integers(min_value=0, max_value=MAX_N_CTXS), label='n_ctxs')
