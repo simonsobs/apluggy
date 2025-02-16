@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
-from typing import ClassVar, Literal, Union
+from typing import ClassVar, Literal, Optional, Union, cast
 
 
 class MockException(Exception):
@@ -171,12 +171,103 @@ async def _async_gen_raise_on_asend() -> Exception:
     assert caught_within is raised  # Still the same exception
     assert caught_on_exit is not raised  # No longer the same exception
 
+    # RuntimeError("generator didn't stop after athrow()")
+    assert isinstance(caught_on_exit, RuntimeError)
+
     return caught_on_exit
 
-        exc = e
-    return exc
+
+def _gen_send_handled() -> Exception:
+    from .refs.nested import nested_with_double
+
+    raised = Exception()
+    caught_inner: Optional[Exception] = None
+    caught_on_exit: Exception
+
+    @contextmanager
+    def ctx0() -> Iterator[None]:
+        nonlocal caught_inner
+        try:
+            yield
+        except Exception as e:
+            caught_inner = e
+
+    @contextmanager
+    def ctx1() -> Iterator[None]:
+        yield
+        raise raised
+
+    try:
+        with (c := nested_with_double([ctx0(), ctx1()])):
+            c.gen.send(None)
+    except Exception as e:
+        caught_on_exit = e
+
+    # caught_inner
+    assert caught_inner is not None
+    caught_inner = cast(Exception, caught_inner)
+    assert caught_inner is raised
+
+    # caught_on_exit
+    assert isinstance(caught_on_exit, Exception)
+    assert caught_on_exit is not raised  # Not the same object
+    assert isinstance(caught_on_exit, StopIteration)
+
+    #
+    return caught_on_exit
+
+
+async def _async_gen_asend_handled() -> Exception:
+    from tests.stack.async_.refs.nested import nested_with_double
+
+    raised_outer = Exception()
+    caught_inner: Optional[Exception] = None
+    caught_on_exit: Exception
+
+    @asynccontextmanager
+    async def ctx0() -> AsyncIterator[None]:
+        nonlocal caught_inner
+        try:
+            yield
+        except Exception as e:
+            # `e` is not the same object as `raised_ctx1`.
+            caught_inner = e
+
+    @asynccontextmanager
+    async def ctx1() -> AsyncIterator[None]:
+        yield
+        raise raised_outer
+
+    try:
+        async with (c := nested_with_double([ctx0(), ctx1()])):
+            await c.gen.asend(None)
+    except Exception as e:
+        assert e is not raised_outer  # The raised exception was handled
+        caught_on_exit = e
+
+    # caught_inner
+    assert caught_inner is not None
+    caught_inner = cast(Exception, caught_inner)
+    assert caught_inner is not raised_outer
+
+    # RuntimeError("generator didn't stop after athrow()")
+    assert isinstance(caught_inner, RuntimeError)
+
+    exp = wrap_exc(AsyncGenRaiseOnASend)
+    assert caught_inner == exp
+
+    # caught_on_exit
+    assert isinstance(caught_on_exit, Exception)
+
+    # RuntimeError("generator didn't stop after athrow()")
+    assert isinstance(caught_on_exit, RuntimeError)
+
+    #
+    return caught_on_exit
 
 
 GenSendWithoutYield = _gen_send_without_yield()
 AsyncGenAsendWithoutYield = asyncio.run(_async_gen_asend_without_yield())
 AsyncGenRaiseOnASend = asyncio.run(_async_gen_raise_on_asend())
+GenSendHandled = _gen_send_handled()
+AsyncGenASendHandled = asyncio.run(_async_gen_asend_handled())
