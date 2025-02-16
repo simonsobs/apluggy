@@ -148,5 +148,28 @@ async def _async_gen_asend_without_yield() -> Exception:
     return exc
 
 
+async def _async_gen_raise_on_asend() -> Exception:
+    raised = Exception()
+
+    @asynccontextmanager
+    async def ctx() -> AsyncIterator[None]:
+        yield
+        raise raised
+
+    exc: Exception
+    try:
+        async with (c := ctx()):
+            try:
+                await c.gen.asend(None)
+            except Exception as e:
+                assert e is raised  # Still the same exception
+                raise
+    except Exception as e:
+        assert e is not raised  # No longer the same exception
+        exc = e
+    return exc
+
+
 GenSendWithoutYield = _gen_send_without_yield()
 AsyncGenAsendWithoutYield = asyncio.run(_async_gen_asend_without_yield())
+AsyncGenRaiseOnASend = asyncio.run(_async_gen_raise_on_asend())

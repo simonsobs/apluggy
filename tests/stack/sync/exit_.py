@@ -2,11 +2,13 @@ from collections.abc import Iterable, Sequence
 from functools import partial
 from typing import Optional, Union
 
+from hypothesis import note
 from hypothesis import strategies as st
 
 from .ctx_id import CtxId
 from .exc import (
     AsyncGenAsendWithoutYield,
+    AsyncGenRaiseOnASend,
     ExceptionExpectation,
     GeneratorDidNotYield,
     GenSendWithoutYield,
@@ -25,6 +27,7 @@ class ExitHandler:
         enabled_except_actions_on_raised: Sequence[ExceptActionName],
     ) -> None:
         self._draw = data.draw
+        self._async = async_
         self._SendWithoutYield = (
             AsyncGenAsendWithoutYield if async_ else GenSendWithoutYield
         )
@@ -117,6 +120,8 @@ class ExitHandler:
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != raising_ctx_id]
         ctx_ids = [raising_ctx_id, *reversed(suspended_ctx_ids)]
         if not suspended_ctx_ids:
+            if self._async:
+                exp_exc = wrap_exc(AsyncGenRaiseOnASend)
             self._expected = _Expected(ctx_ids, exp_exc)
         else:
             exc_handler = self._draw(
