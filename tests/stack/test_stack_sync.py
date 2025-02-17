@@ -16,7 +16,7 @@ else:
 
 from .context_sync import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
 from .exc import MockException
-from .sync.refs import Stack, stack_dunder_enter, stack_exit_stack, stack_nested_with
+from .refs import Stack, stack_dunder_enter, stack_exit_stack, stack_nested_with
 
 ExitActionName: TypeAlias = Literal['exit', 'raise']
 EXIT_ACTIONS: Sequence[ExitActionName] = ('exit', 'raise')

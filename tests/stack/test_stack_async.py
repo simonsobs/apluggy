@@ -14,14 +14,14 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .async_.refs import (
+from .context_async import CTX_ACTIONS, EXCEPT_ACTIONS, MockAContext
+from .exc import MockException
+from .refs import (
     AStack,
     async_stack_dunder_enter,
     async_stack_exit_stack,
     async_stack_nested_with,
 )
-from .context_async import CTX_ACTIONS, EXCEPT_ACTIONS, MockAContext
-from .exc import MockException
 
 ExitActionName: TypeAlias = Literal['exit', 'raise']
 EXIT_ACTIONS: Sequence[ExitActionName] = ('exit', 'raise')

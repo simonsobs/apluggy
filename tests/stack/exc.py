@@ -178,7 +178,7 @@ async def _async_gen_raise_on_asend() -> Exception:
 
 
 def _gen_send_handled() -> Exception:
-    from .sync.refs.nested import stack_nested_with_double
+    from tests.stack.refs.sync.nested import stack_nested_with_double
 
     raised = Exception()
     caught_inner: Optional[Exception] = None
@@ -218,7 +218,7 @@ def _gen_send_handled() -> Exception:
 
 
 async def _async_gen_asend_handled() -> Exception:
-    from tests.stack.async_.refs.nested import async_stack_nested_with_double
+    from tests.stack.refs.async_.nested import async_stack_nested_with_double
 
     raised_outer = Exception()
     caught_inner: Optional[Exception] = None
