@@ -1,4 +1,3 @@
-import asyncio
 import contextlib
 import sys
 from collections.abc import AsyncGenerator, Iterable
@@ -9,9 +8,7 @@ from .types import AGenCtxMngr
 T = TypeVar('T')
 
 
-def async_stack_dunder_enter(
-    ctxs: Iterable[AGenCtxMngr[T]], sequential: bool = True
-) -> AGenCtxMngr[list[T]]:
+def async_stack_dunder_enter(ctxs: Iterable[AGenCtxMngr[T]]) -> AGenCtxMngr[list[T]]:
     '''A reference implementation of `async_stack_gen_ctxs` for tests.'''
     ctxs = list(ctxs)
     if not ctxs:
@@ -19,9 +16,9 @@ def async_stack_dunder_enter(
     if len(ctxs) == 1:
         return async_stack_dunder_enter_single(ctxs)
     if len(ctxs) == 2:
-        return async_stack_dunder_enter_double(ctxs, sequential=sequential)
+        return async_stack_dunder_enter_double(ctxs)
     if len(ctxs) == 3:
-        return async_stack_dunder_enter_triple(ctxs, sequential=sequential)
+        return async_stack_dunder_enter_triple(ctxs)
     raise NotImplementedError()
 
 
@@ -58,7 +55,7 @@ async def async_stack_dunder_enter_single(
 
 @contextlib.asynccontextmanager
 async def async_stack_dunder_enter_double(
-    ctxs: Iterable[AGenCtxMngr[T]], sequential: bool = True
+    ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
     assert len(ctxs) == 2
@@ -72,26 +69,13 @@ async def async_stack_dunder_enter_double(
 
     try:
         try:
-            if sequential:
-                ys = [await _enter(ctx0), await _enter(ctx1)]
-            else:
-                ys = list(await asyncio.gather(_enter(ctx0), _enter(ctx1)))
-            sent = yield ys
+            sent = yield [await _enter(ctx0), await _enter(ctx1)]
             try:
                 while True:
-                    if sequential:
-                        ys = [
-                            await ctx1.gen.asend(sent),
-                            await ctx0.gen.asend(sent),
-                        ]
-                    else:
-                        ys = list(
-                            await asyncio.gather(
-                                ctx1.gen.asend(sent),
-                                ctx0.gen.asend(sent),
-                            )
-                        )
-                    sent = yield ys
+                    sent = yield [
+                        await ctx1.gen.asend(sent),
+                        await ctx0.gen.asend(sent),
+                    ]
             except StopAsyncIteration:
                 pass
         except BaseException:
@@ -114,7 +98,7 @@ async def async_stack_dunder_enter_double(
 
 @contextlib.asynccontextmanager
 async def async_stack_dunder_enter_triple(  # noqa: C901
-    ctxs: Iterable[AGenCtxMngr[T]], sequential: bool = True
+    ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
     assert len(ctxs) == 3
@@ -129,34 +113,18 @@ async def async_stack_dunder_enter_triple(  # noqa: C901
     try:
         try:
             try:
-                if sequential:
-                    ys = [
-                        await _enter(ctx0),
-                        await _enter(ctx1),
-                        await _enter(ctx2),
-                    ]
-                else:
-                    ys = list(
-                        await asyncio.gather(_enter(ctx0), _enter(ctx1), _enter(ctx2))
-                    )
-                sent = yield ys
+                sent = yield [
+                    await _enter(ctx0),
+                    await _enter(ctx1),
+                    await _enter(ctx2),
+                ]
                 try:
                     while True:
-                        if sequential:
-                            ys = [
-                                await ctx2.gen.asend(sent),
-                                await ctx1.gen.asend(sent),
-                                await ctx0.gen.asend(sent),
-                            ]
-                        else:
-                            ys = list(
-                                await asyncio.gather(
-                                    ctx2.gen.asend(sent),
-                                    ctx1.gen.asend(sent),
-                                    ctx0.gen.asend(sent),
-                                )
-                            )
-                        sent = yield ys
+                        sent = yield [
+                            await ctx2.gen.asend(sent),
+                            await ctx1.gen.asend(sent),
+                            await ctx0.gen.asend(sent),
+                        ]
                 except StopAsyncIteration:
                     pass
             except BaseException:

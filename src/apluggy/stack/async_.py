@@ -1,4 +1,3 @@
-import asyncio
 import contextlib
 import sys
 from collections.abc import AsyncGenerator, Iterable
@@ -11,7 +10,7 @@ T = TypeVar('T')
 
 @contextlib.asynccontextmanager
 async def async_stack_gen_ctxs(
-    ctxs: Iterable[AGenCtxMngr[T]], sequential: bool = True
+    ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     '''Manage multiple async context managers with the support of the `gen` attribute.
 
@@ -27,35 +26,18 @@ async def async_stack_gen_ctxs(
         return y
 
     try:
-        # Enter the async context managers
-        if sequential:
-            ys = [await _enter(ctx) for ctx in ctxs]
-        else:
-            ys = await asyncio.gather(*[_enter(ctx) for ctx in ctxs])
-
         # Yield at least once even if an empty `ctxs` is given.
         # Receive a value from the `with` block sent by `gen.asend()`.
-        sent = yield ys
+        sent = yield [await _enter(ctx) for ctx in ctxs]
 
         if ctxs:
             try:
                 # Send the received value to the async context managers
                 # until at least one of them exits.
                 while True:
-                    if sequential:
-                        ys = [await ctx.gen.asend(sent) for ctx in reversed(ctxs)]
-                    else:
-                        ys = await asyncio.gather(
-                            *[ctx.gen.asend(sent) for ctx in reversed(ctxs)]
-                        )
-                    sent = yield ys
+                    sent = yield [await ctx.gen.asend(sent) for ctx in reversed(ctxs)]
             except StopAsyncIteration:
                 # An async context manager exited.
-
-                # TODO: When `sequential` is `False`, some `asend()` tasks can be
-                # still running.  It is probably necessary to wait for them before
-                # exiting the async context manager.
-
                 pass
 
     except BaseException:

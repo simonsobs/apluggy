@@ -50,9 +50,6 @@ class AWith:
             ctxs = hook(*args, **kwargs)
             if self.reverse:
                 ctxs = list(reversed(ctxs))
-
-            # TODO: Make `sequential` configurable.  It is set to `True` for
-            # now because nextline-graphql doesn't work with `False`.
-            return async_stack_gen_ctxs(ctxs, sequential=True)
+            return async_stack_gen_ctxs(ctxs)
 
         return call
