@@ -7,33 +7,22 @@ from .types import AGenCtxMngr
 T = TypeVar('T')
 
 
-def nested_with(ctxs: Iterable[AGenCtxMngr[T]]) -> AGenCtxMngr[list[T]]:
+def async_stack_nested_with(ctxs: Iterable[AGenCtxMngr[T]]) -> AGenCtxMngr[list[T]]:
+    '''A reference implementation of `async_stack_gen_ctxs` for tests.'''
     ctxs = list(ctxs)
-    # TODO: When Python 3.9 support is dropped
-    # match len(ctxs):
-    #     case 0:
-    #         return nested_with_null(ctxs)
-    #     case 1:
-    #         return nested_with_single(ctxs)
-    #     case 2:
-    #         return nested_with_double(ctxs)
-    #     case 3:
-    #         return nested_with_triple(ctxs)
-    #     case _:
-    #         raise NotImplementedError()
     if not ctxs:
-        return nested_with_null(ctxs)
+        return async_stack_nested_with_null(ctxs)
     if len(ctxs) == 1:
-        return nested_with_single(ctxs)
+        return async_stack_nested_with_single(ctxs)
     if len(ctxs) == 2:
-        return nested_with_double(ctxs)
+        return async_stack_nested_with_double(ctxs)
     if len(ctxs) == 3:
-        return nested_with_triple(ctxs)
+        return async_stack_nested_with_triple(ctxs)
     raise NotImplementedError()
 
 
 @contextlib.asynccontextmanager
-async def nested_with_null(
+async def async_stack_nested_with_null(
     ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
@@ -42,7 +31,7 @@ async def nested_with_null(
 
 
 @contextlib.asynccontextmanager
-async def nested_with_single(
+async def async_stack_nested_with_single(
     ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
@@ -58,7 +47,7 @@ async def nested_with_single(
 
 
 @contextlib.asynccontextmanager
-async def nested_with_double(
+async def async_stack_nested_with_double(
     ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
@@ -77,7 +66,7 @@ async def nested_with_double(
 
 
 @contextlib.asynccontextmanager
-async def nested_with_triple(
+async def async_stack_nested_with_triple(
     ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)

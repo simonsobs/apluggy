@@ -38,6 +38,16 @@ def st_exception_handler(
     return ExceptionHandler(draw, exp, ids, enabled_actions)
 
 
+@st.composite
+def st_exception_handler_async_asend(
+    draw: st.DrawFn,
+    exp: ExceptionExpectation,
+    ids: Iterable[CtxId],
+    enabled_actions: Sequence[ExceptActionName] = EXCEPT_ACTIONS,
+) -> 'ExceptionHandler':
+    return ExceptionHandler(draw, exp, ids, enabled_actions, async_asend=True)
+
+
 class ExceptionHandler:
     def __init__(
         self,
@@ -45,6 +55,7 @@ class ExceptionHandler:
         exp: ExceptionExpectation,
         ids: Iterable[CtxId],
         enabled_actions: Sequence[ExceptActionName],
+        async_asend: bool = False,
     ) -> None:
         # The expected exception to be raised in the innermost context.
         self._exp = exp
@@ -52,7 +63,10 @@ class ExceptionHandler:
         self._action_map = draw(_st_action_map(ids, enabled_actions))
         note(f'{self.__class__.__name__}: {self._action_map=}')
 
-        self._expected = _compose_expected(exp, self._action_map)
+        if async_asend:
+            self._expected = _compose_expected_async_send(self._action_map)
+        else:
+            self._expected = _compose_expected(exp, self._action_map)
         note(f'{self.__class__.__name__}: {self._expected=}')
 
         self._actual: list[tuple[CtxId, Exception]] = []
@@ -72,18 +86,18 @@ class ExceptionHandler:
     ) -> ExceptionExpectation:
         # From the innermost to the outermost.
         action_items = reversed(list(self._action_map.values()))
+        exp_on_reraise = self._exp
         if exp_on_handle is None:
             exp_on_handle = wrap_exc(None)
-        return _expect_last_exc(
-            action_items, exp_on_reraise=self._exp, exp_on_handle=exp_on_handle
-        )
+        for action, exc in action_items:
+            if action == 'handle':
+                return exp_on_handle
+            if action == 'raise':
+                return wrap_exc(exc)
+        return exp_on_reraise
 
     def assert_on_exited(self, exc: Union[BaseException, None]) -> None:
         assert not self._action_map
-        self._assert_raised()
-
-    def _assert_raised(self) -> None:
-        note(f'{self._actual=!r} {self._expected=!r}')
         assert self._actual == list(self._expected)
 
 
@@ -157,14 +171,21 @@ def _compose_expected(
     return tuple(ret)
 
 
-def _expect_last_exc(
-    action_items: Iterable[_ActionItem],
-    exp_on_reraise: ExceptionExpectation,
-    exp_on_handle: ExceptionExpectation,
-) -> ExceptionExpectation:
-    for action, exc1 in action_items:
+def _compose_expected_async_send(
+    action_map: _ActionMap,
+) -> tuple[tuple[CtxId, ExceptionExpectation], ...]:
+    '''_compose_expected() for async send.
+
+    Currently, only expect `Exception` to be raised. Actual exceptions are
+    MockExceptions or RuntimeError.
+    '''
+
+    exp = ExceptionExpectation(Exception(), method='type')
+
+    ret = list[tuple[CtxId, ExceptionExpectation]]()
+    for id, (action, _) in action_map.items():
+        ret.append((id, exp))
         if action == 'handle':
-            return exp_on_handle
-        if action == 'raise':
-            return wrap_exc(exc1)
-    return exp_on_reraise
+            break
+
+    return tuple(ret)

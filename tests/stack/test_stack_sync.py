@@ -14,9 +14,9 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .context import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
+from .context_sync import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
 from .exc import MockException
-from .refs import Stack, dunder_enter, exit_stack, nested_with
+from .refs import Stack, stack_dunder_enter, stack_exit_stack, stack_nested_with
 
 ExitActionName: TypeAlias = Literal['exit', 'raise']
 EXIT_ACTIONS: Sequence[ExitActionName] = ('exit', 'raise')
@@ -101,7 +101,7 @@ def _st_stack(n_ctxs: int, gen_enabled: bool) -> st.SearchStrategy[Stack]:
     # `dunder_enter`, `nested_with`, and `exit_stack` are reference implementations.
     stacks = [stack_gen_ctxs]
     if n_ctxs <= 4:
-        stacks.extend([dunder_enter, nested_with])
+        stacks.extend([stack_dunder_enter, stack_nested_with])
     if not gen_enabled:
-        stacks.append(exit_stack)
+        stacks.append(stack_exit_stack)
     return st.sampled_from(stacks)

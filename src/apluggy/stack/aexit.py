@@ -18,6 +18,11 @@ if sys.version_info < (3, 10):
 def patch_aexit(ctx: AGenCtxMngr[T]):
     '''Make `__aexit__()` re-raise just like (sync) generator's `__exit__()` does.
 
+        TODO: Deprecate this patch. This patch doesn't work with `async with`
+        because it doesn't call the instance's `__aexit__()` but the class's
+        `__aexit__()` as `type(ctx).__aexit__()` (PEP 492).
+
+
     The problem that this function solves is that, unlike a (sync) context
     manager, an async context manager doesn't raise the same exception at the
     exit if the `asend()` method of the `gen` attribute is used.

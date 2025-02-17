@@ -11,45 +11,30 @@ from .types import AGenCtxMngr
 T = TypeVar('T')
 
 
-def dunder_enter(
+def async_stack_dunder_enter(
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool = True,
-    sequential: bool = False,
+    sequential: bool = True,
 ) -> AGenCtxMngr[list[T]]:
+    '''A reference implementation of `async_stack_gen_ctxs` for tests.'''
     ctxs = list(ctxs)
-    # TODO: When Python 3.9 support is dropped
-    # match len(ctxs):
-    #     case 0:
-    #         return dunder_enter_null(ctxs)
-    #     case 1:
-    #         return dunder_enter_single(ctxs, fix_reraise=fix_reraise)
-    #     case 2:
-    #         return dunder_enter_double(
-    #             ctxs, fix_reraise=fix_reraise, sequential=sequential
-    #         )
-    #     case 3:
-    #         return dunder_enter_triple(
-    #             ctxs, fix_reraise=fix_reraise, sequential=sequential
-    #         )
-    #     case _:
-    #         raise NotImplementedError()
     if not ctxs:
-        return dunder_enter_null(ctxs)
+        return async_stack_dunder_enter_null(ctxs)
     if len(ctxs) == 1:
-        return dunder_enter_single(ctxs, fix_reraise=fix_reraise)
+        return async_stack_dunder_enter_single(ctxs, fix_reraise=fix_reraise)
     if len(ctxs) == 2:
-        return dunder_enter_double(
+        return async_stack_dunder_enter_double(
             ctxs, fix_reraise=fix_reraise, sequential=sequential
         )
     if len(ctxs) == 3:
-        return dunder_enter_triple(
+        return async_stack_dunder_enter_triple(
             ctxs, fix_reraise=fix_reraise, sequential=sequential
         )
     raise NotImplementedError()
 
 
 @contextlib.asynccontextmanager
-async def dunder_enter_null(
+async def async_stack_dunder_enter_null(
     ctxs: Iterable[AGenCtxMngr[T]],
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
@@ -58,7 +43,7 @@ async def dunder_enter_null(
 
 
 @contextlib.asynccontextmanager
-async def dunder_enter_single(
+async def async_stack_dunder_enter_single(
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool,
 ) -> AsyncGenerator[list[T], Any]:
@@ -82,10 +67,10 @@ async def dunder_enter_single(
 
 
 @contextlib.asynccontextmanager
-async def dunder_enter_double(
+async def async_stack_dunder_enter_double(
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool,
-    sequential: bool = False,
+    sequential: bool = True,
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
     assert len(ctxs) == 2
@@ -144,10 +129,10 @@ async def dunder_enter_double(
 
 
 @contextlib.asynccontextmanager
-async def dunder_enter_triple(  # noqa: C901
+async def async_stack_dunder_enter_triple(  # noqa: C901
     ctxs: Iterable[AGenCtxMngr[T]],
     fix_reraise: bool,
-    sequential: bool = False,
+    sequential: bool = True,
 ) -> AsyncGenerator[list[T], Any]:
     ctxs = list(ctxs)
     assert len(ctxs) == 3

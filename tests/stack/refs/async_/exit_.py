@@ -8,7 +8,10 @@ T = TypeVar('T')
 
 
 @contextlib.asynccontextmanager
-async def exit_stack(ctxs: Iterable[AGenCtxMngr[T]]) -> AsyncGenerator[list[T], Any]:
+async def async_stack_exit_stack(
+    ctxs: Iterable[AGenCtxMngr[T]],
+) -> AsyncGenerator[list[T], Any]:
+    '''A reference implementation of `async_stack_gen_ctxs` for tests.'''
     async with contextlib.AsyncExitStack() as stack:
         yield [await stack.enter_async_context(ctx) for ctx in ctxs]
 

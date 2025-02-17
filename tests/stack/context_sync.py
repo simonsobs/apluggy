@@ -31,6 +31,7 @@ class MockContext:
         )
         self._exit_handler = ExitHandler(
             data,
+            async_=False,
             enabled_except_actions_on_enter=enabled_except_actions_on_enter,
             enabled_except_actions_on_sent=enabled_except_actions_on_sent,
             enabled_except_actions_on_raised=enabled_except_actions_on_raised,

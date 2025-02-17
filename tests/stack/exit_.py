@@ -5,26 +5,53 @@ from typing import Optional, Union
 from hypothesis import strategies as st
 
 from .ctx_id import CtxId
-from .exc import ExceptionExpectation, GeneratorDidNotYield, wrap_exc
-from .except_ import ExceptActionName, ExceptionHandler, st_exception_handler
+from .exc import (
+    AsyncGenASendHandled,
+    AsyncGenAsendWithoutYield,
+    AsyncGenRaiseOnASend,
+    ExceptionExpectation,
+    GeneratorDidNotYield,
+    GenSendHandled,
+    GenSendWithoutYield,
+    wrap_exc,
+)
+from .except_ import (
+    ExceptActionName,
+    ExceptionHandler,
+    st_exception_handler,
+    st_exception_handler_async_asend,
+)
 
 
 class ExitHandler:
     def __init__(
         self,
         data: st.DataObject,
+        async_: bool,
         enabled_except_actions_on_enter: Sequence[ExceptActionName],
         enabled_except_actions_on_sent: Sequence[ExceptActionName],
         enabled_except_actions_on_raised: Sequence[ExceptActionName],
     ) -> None:
         self._draw = data.draw
+        self._async = async_
+        self._SendWithoutYield = (
+            AsyncGenAsendWithoutYield if async_ else GenSendWithoutYield
+        )
+        self._SendRaisedHandled = AsyncGenASendHandled if async_ else GenSendHandled
         self._st_exc_handler_on_enter = partial(
             st_exception_handler,
             enabled_actions=enabled_except_actions_on_enter,
         )
-        self._st_exc_handler_on_sent = partial(
-            st_exception_handler,
-            enabled_actions=enabled_except_actions_on_sent,
+        self._st_exc_handler_on_sent = (
+            partial(
+                st_exception_handler_async_asend,
+                enabled_actions=enabled_except_actions_on_sent,
+            )
+            if async_
+            else partial(
+                st_exception_handler,
+                enabled_actions=enabled_except_actions_on_sent,
+            )
         )
         self._st_exc_handler_on_raised = partial(
             st_exception_handler,
@@ -83,7 +110,7 @@ class ExitHandler:
 
     def expect_send_without_ctx(self) -> None:
         '''`gen.send()` is called while no context is entered.'''
-        exc_expected = wrap_exc(StopIteration())
+        exc_expected = wrap_exc(self._SendWithoutYield)
         self._expected = _Expected([], exc_expected)
 
     def expect_exit_on_sent(
@@ -94,7 +121,7 @@ class ExitHandler:
         '''A context exits without yielding on sent.'''
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != exiting_ctx_id]
         ctx_ids = [exiting_ctx_id, *reversed(suspended_ctx_ids)]
-        exc_expected = wrap_exc(StopIteration())
+        exc_expected = wrap_exc(self._SendWithoutYield)
         self._expected = _Expected(ctx_ids, exc_expected)
 
     def expect_raise_on_sent(
@@ -107,6 +134,8 @@ class ExitHandler:
         suspended_ctx_ids = [id for id in entered_ctx_ids if id != raising_ctx_id]
         ctx_ids = [raising_ctx_id, *reversed(suspended_ctx_ids)]
         if not suspended_ctx_ids:
+            if self._async:
+                exp_exc = wrap_exc(AsyncGenRaiseOnASend)
             self._expected = _Expected(ctx_ids, exp_exc)
         else:
             exc_handler = self._draw(
@@ -114,9 +143,12 @@ class ExitHandler:
                     exp=exp_exc, ids=reversed(suspended_ctx_ids)
                 )
             )
-            exp_on_handle = wrap_exc(StopIteration())
+            # exp_on_handle = wrap_exc(StopIteration())
+            exp_on_handle = wrap_exc(self._SendRaisedHandled)
             exc_expected = exc_handler.expect_outermost_exc(exp_on_handle=exp_on_handle)
             #
+            if self._async:
+                exc_expected = wrap_exc(AsyncGenRaiseOnASend)
             self._expected = _Expected(ctx_ids, exc_expected)
             self._exc_handler = exc_handler
 
