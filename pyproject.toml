@@ -49,6 +49,7 @@ tag_sign = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 timeout = 60
 addopts = """
 --doctest-modules
