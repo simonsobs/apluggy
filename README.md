@@ -73,24 +73,12 @@ Import necessary packages of this example.
 
 ```python
 >>> import asyncio
+>>> from contextlib import asynccontextmanager, contextmanager
 >>> import apluggy as pluggy
->>> from apluggy import asynccontextmanager, contextmanager
 
 ```
 
 In this example, `apluggy` is imported with the alias `pluggy`.
-
-The decorators `asynccontextmanager` and `contextmanager` are imported from
-`apluggy`. They are wrappers of the decorators of the same names in the
-[contextlib package](https://docs.python.org/3/library/contextlib.html). The
-wrappers preserve the signatures of decorated functions, which are necessary for
-pluggy to pass arguments to hook implementations correctly. (The decorator
-`contextmanger` in `apluggy` is the same object as the decorator
-`contextmanager` in the [decorator
-package](https://pypi.org/project/decorator/). The decorator package does not
-provide `asynccontextmanager` decorator as of version 5.1. The decorator
-`asynccontextmanger` in `apluggy` is implemented in a similar way as the
-decorator `contextmanager` in the decorator package.)
 
 ### Create hook specification and implementation decorators
 
@@ -284,7 +272,6 @@ inside Plugin_1.acontext(): after
 ## Links
 
 - [pluggy](https://pluggy.readthedocs.io/)
-- [decorator](https://pypi.org/project/decorator/)
 
 ---
 

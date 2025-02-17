@@ -23,7 +23,6 @@ classifiers = [
 ]
 dependencies = [
   "pluggy>=1.3",
-  "decorator>=5.1",
   "types-decorator>=5.1",
   "typing_extensions>=4.12; python_version < '3.10'",
 ]

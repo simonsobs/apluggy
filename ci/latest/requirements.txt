@@ -2,7 +2,6 @@
 # is used in a GitHub Actions workflow to test the compatibility with the
 # latest versions of the dependencies. This file is monitored by Dependabot.
 pluggy==1.5.0
-decorator==5.1.1
 types-decorator==5.1.8.20250215
 pytest-asyncio==0.25.3
 pytest-cov==6.0.0

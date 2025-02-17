@@ -1,6 +1,8 @@
+from contextlib import asynccontextmanager, contextmanager
+
 import pytest
 
-from apluggy import PluginManager, asynccontextmanager, contextmanager
+from apluggy import PluginManager
 
 from . import module_plugin, spec
 
