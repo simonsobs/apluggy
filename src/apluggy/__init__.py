@@ -11,9 +11,8 @@ __all__ = [
 ]
 
 
-from decorator import contextmanager
 from pluggy import HookCallError, HookimplMarker, HookspecMarker, PluginValidationError
 
-from ._decorator import asynccontextmanager
+from ._decorator import asynccontextmanager, contextmanager
 from .stack import async_stack_gen_ctxs, stack_gen_ctxs
 from .wrap import PluginManager
