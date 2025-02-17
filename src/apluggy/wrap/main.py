@@ -17,7 +17,7 @@ class PluginManager(PluginManager_):
 
     >>> import asyncio
     >>> import apluggy as pluggy
-    >>> from apluggy import asynccontextmanager, contextmanager
+    >>> from contextlib import asynccontextmanager, contextmanager
 
     >>> hookspec = pluggy.HookspecMarker('project')
     >>> hookimpl = pluggy.HookimplMarker('project')

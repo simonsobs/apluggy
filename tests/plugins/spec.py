@@ -1,5 +1,6 @@
+from contextlib import asynccontextmanager, contextmanager
+
 import apluggy as pluggy
-from apluggy import asynccontextmanager, contextmanager
 
 hookspec = pluggy.HookspecMarker('myproject')
 hookimpl = pluggy.HookimplMarker('myproject')
