@@ -1,12 +1,12 @@
 __all__ = [
-    'dunder_enter',
-    'exit_stack',
-    'nested_with',
+    'async_stack_dunder_enter',
+    'async_stack_exit_stack',
+    'async_stack_nested_with',
     'AStack',
 ]
 
 
-from .dunder import dunder_enter
-from .exit_ import exit_stack
-from .nested import nested_with
+from .dunder import async_stack_dunder_enter
+from .exit_ import async_stack_exit_stack
+from .nested import async_stack_nested_with
 from .types import AStack

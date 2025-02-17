@@ -178,7 +178,7 @@ async def _async_gen_raise_on_asend() -> Exception:
 
 
 def _gen_send_handled() -> Exception:
-    from .sync.refs.nested import nested_with_double
+    from .sync.refs.nested import stack_nested_with_double
 
     raised = Exception()
     caught_inner: Optional[Exception] = None
@@ -198,7 +198,7 @@ def _gen_send_handled() -> Exception:
         raise raised
 
     try:
-        with (c := nested_with_double([ctx0(), ctx1()])):
+        with (c := stack_nested_with_double([ctx0(), ctx1()])):
             c.gen.send(None)
     except Exception as e:
         caught_on_exit = e
@@ -218,7 +218,7 @@ def _gen_send_handled() -> Exception:
 
 
 async def _async_gen_asend_handled() -> Exception:
-    from tests.stack.async_.refs.nested import nested_with_double
+    from tests.stack.async_.refs.nested import async_stack_nested_with_double
 
     raised_outer = Exception()
     caught_inner: Optional[Exception] = None
@@ -239,7 +239,7 @@ async def _async_gen_asend_handled() -> Exception:
         raise raised_outer
 
     try:
-        async with (c := nested_with_double([ctx0(), ctx1()])):
+        async with (c := async_stack_nested_with_double([ctx0(), ctx1()])):
             await c.gen.asend(None)
     except Exception as e:
         assert e is not raised_outer  # The raised exception was handled

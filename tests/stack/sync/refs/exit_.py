@@ -8,6 +8,7 @@ T = TypeVar('T')
 
 
 @contextlib.contextmanager
-def exit_stack(ctxs: Iterable[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+def stack_exit_stack(ctxs: Iterable[GenCtxMngr[T]]) -> Generator[list[T], Any, Any]:
+    '''A reference implementation of `stack_gen_ctxs` for tests.'''
     with contextlib.ExitStack() as stack:
         yield [stack.enter_context(ctx) for ctx in ctxs]

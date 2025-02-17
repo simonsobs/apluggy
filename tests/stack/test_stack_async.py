@@ -14,7 +14,12 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .async_.refs import AStack, dunder_enter, exit_stack, nested_with
+from .async_.refs import (
+    AStack,
+    async_stack_dunder_enter,
+    async_stack_exit_stack,
+    async_stack_nested_with,
+)
 from .context_async import CTX_ACTIONS, EXCEPT_ACTIONS, MockAContext
 from .exc import MockException
 
@@ -102,7 +107,7 @@ def _st_stack(n_ctxs: int, gen_enabled: bool) -> st.SearchStrategy[AStack]:
     # `dunder_enter`, `nested_with`, and `exit_stack` are reference implementations.
     stacks = [async_stack_gen_ctxs]
     if n_ctxs <= 3:
-        stacks.extend([dunder_enter, nested_with])
+        stacks.extend([async_stack_dunder_enter, async_stack_nested_with])
     if not gen_enabled:
-        stacks.append(exit_stack)
+        stacks.append(async_stack_exit_stack)
     return st.sampled_from(stacks)
