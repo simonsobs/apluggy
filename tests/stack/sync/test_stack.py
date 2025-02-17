@@ -14,7 +14,7 @@ else:
     from typing_extensions import TypeAlias
 
 
-from .context import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
+from .context_sync import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
 from .exc import MockException
 from .refs import Stack, dunder_enter, exit_stack, nested_with
 
