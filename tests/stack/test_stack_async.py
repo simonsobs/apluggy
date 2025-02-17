@@ -14,8 +14,7 @@ else:
     from typing_extensions import TypeAlias
 
 
-from tests.stack.async_.refs import AStack, dunder_enter, exit_stack, nested_with
-
+from .async_.refs import AStack, dunder_enter, exit_stack, nested_with
 from .context_async import CTX_ACTIONS, EXCEPT_ACTIONS, MockAContext
 from .exc import MockException
 
