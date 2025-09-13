@@ -1,7 +1,9 @@
 changelog:
   exclude:
     authors:
-      - dependabot
+      - "dependabot[bot]"
+    labels:
+      - "dependencies"
   categories:
     - title: Changes 🚀
       labels:
