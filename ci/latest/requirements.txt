@@ -3,7 +3,7 @@
 # latest versions of the dependencies. This file is monitored by Dependabot.
 pluggy==1.6.0
 types-decorator==5.2.0.20250324
-pytest-asyncio==1.1.0
+pytest-asyncio==1.2.0
 pytest-cov==7.0.0
 pytest-timeout==2.4.0
 pytest==8.4.2
