@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "apluggy"
 description = 'A wrapper of "pluggy" to support asyncio and context managers'
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [{ name = "Tai Sakuma" }]
@@ -15,7 +15,6 @@ classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
