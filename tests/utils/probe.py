@@ -51,16 +51,10 @@ class Probe:
         self.calls.append(record)
 
     def _fmt_tag(self, tag: Any) -> str:
-        # TODO: When Python 3.9 support is dropped
-        # match tag:
-        #     case Exception():
-        #         return repr(tag)
-        #     case BaseException():
-        #         return tag.__class__.__name__
-        #     case _:
-        #         return f'{tag}'
-        if isinstance(tag, Exception):
-            return repr(tag)
-        if isinstance(tag, BaseException):
-            return tag.__class__.__name__
-        return f'{tag}'
+        match tag:
+            case Exception():
+                return repr(tag)
+            case BaseException():
+                return tag.__class__.__name__
+            case _:
+                return f'{tag}'
