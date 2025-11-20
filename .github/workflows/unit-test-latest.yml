@@ -42,8 +42,8 @@ jobs:
       - name: Install packages
         run: |
           pip install --upgrade pip
-          pip install -e '.[tests]'
-          pip install -r ci/latest/requirements.txt
+          pip install -e .
+          pip install -r .github/deps/latest/requirements.txt
           pip list
 
       - name: Run tests
