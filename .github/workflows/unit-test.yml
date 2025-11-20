@@ -20,15 +20,15 @@ env:
 jobs:
   run:
     name: >
-      Python ${{ matrix.python-version }} on
-      ${{ startsWith(matrix.os, 'macos-') && 'macOS' || 'Linux' }}
-      with ${{ matrix.deps }} dependencies
+      Py${{ matrix.python-version }}
+      (${{ matrix.deps }} deps)
+      on ${{ startsWith(matrix.os, 'macos-') && 'macOS' || 'Linux' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        deps: [default, latest, minimum]
+        deps: [default, latest, min]
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
@@ -55,7 +55,7 @@ jobs:
         
       - name: Install packages (minimum)
         # Oldest supported versions of dependencies in `pyproject.toml`
-        if: matrix.deps == 'minimum'
+        if: matrix.deps == 'min'
         run: |
           pip install -e .
           pip install -r .github/deps/minimum/requirements.txt
