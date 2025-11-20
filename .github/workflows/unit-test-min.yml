@@ -17,12 +17,13 @@ on:
       - main
 
 concurrency:
-  group: unit-test-min-${{ github.head_ref }}
+  group: unit-test-min-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
+  PIP_PROGRESS_BAR: "off"
 
 jobs:
   run:
