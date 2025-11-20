@@ -33,6 +33,7 @@ tests = [
   "pytest>=8.0",
   "hypothesis>=6.117",
 ]
+type-check = ["mypy>=1.0"]
 
 [project.urls]
 Documentation = "https://github.com/nextline-dev/apluggy#readme"
