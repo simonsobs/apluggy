@@ -1,18 +1,11 @@
-import sys
 import traceback
 from collections.abc import Sequence
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from hypothesis import given, note, settings
 from hypothesis import strategies as st
 
 from apluggy import stack_gen_ctxs
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
 
 from .context_sync import CTX_ACTIONS, EXCEPT_ACTIONS, MockContext
 from .exc import MockException

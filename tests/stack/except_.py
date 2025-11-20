@@ -1,17 +1,10 @@
-import sys
 from collections.abc import Iterable, MutableMapping, Sequence
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, TypeAlias, Union
 
 from hypothesis import note
 from hypothesis import strategies as st
 
 from tests.utils import st_list_until
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
 
 from .ctx_id import CtxId
 from .exc import ExceptionExpectation, MockException, wrap_exc
