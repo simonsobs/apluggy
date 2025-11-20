@@ -43,6 +43,7 @@ Source = "https://github.com/nextline-dev/apluggy"
 [tool.hatch.version]
 source = "regex_commit"
 path = "src/apluggy/__about__.py"
+check_dirty = false
 tag_sign = false
 
 [tool.pytest.ini_options]
