@@ -1,16 +1,10 @@
 import inspect
-import sys
 from collections import deque
 from collections.abc import Callable
 from itertools import count
-from typing import Generic, Optional, TypeVar, Union
+from typing import Generic, Optional, ParamSpec, TypeVar, Union
 
 from hypothesis import strategies as st
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
 
 from .iteration import take_until
 

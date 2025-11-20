@@ -1,11 +1,5 @@
 import inspect
-import sys
-from typing import Any, TypeVar
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
+from typing import Any, ParamSpec, TypeVar
 
 P = ParamSpec('P')
 T = TypeVar('T')
