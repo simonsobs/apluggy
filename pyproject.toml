@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apluggy"
+dynamic = ["version"]
 description = 'A wrapper of "pluggy" to support asyncio and context managers'
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-keywords = []
+license-files = ["LICENSE.txt"]
 authors = [{ name = "Tai Sakuma" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -21,8 +22,8 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
+keywords = ["pluggy", "plugin", "hooks", "asyncio", "context manager"]
 dependencies = ["pluggy>=1.3"]
-dynamic = ["version"]
 
 [project.optional-dependencies]
 tests = [
