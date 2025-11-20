@@ -9,12 +9,13 @@ on:
       - main
 
 concurrency:
-  group: type-check-${{ github.head_ref }}
+  group: type-check-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
+  PIP_PROGRESS_BAR: "off"
 
 jobs:
   run:
