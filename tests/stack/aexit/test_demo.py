@@ -3,11 +3,6 @@ import sys
 
 import pytest
 
-if sys.version_info < (3, 10):
-
-    async def anext(ait):
-        return await ait.__anext__()
-
 
 async def test_demo_aexit_problem() -> None:
     '''Show an async context manager doesn't raise the same exception at the exit.
