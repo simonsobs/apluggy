@@ -19,12 +19,16 @@ env:
 
 jobs:
   run:
-    name: Python ${{ matrix.python-version }} on ${{ startsWith(matrix.os, 'macos-') && 'macOS' || 'Linux' }}
+    name: >
+      Python ${{ matrix.python-version }} on
+      ${{ startsWith(matrix.os, 'macos-') && 'macOS' || 'Linux' }}
+      with ${{ matrix.deps }} dependencies
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        deps: [default, latest, minimum]
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
@@ -36,10 +40,28 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install packages
+        if: matrix.deps == 'default'
         run: |
           pip install --upgrade pip
           pip install -e . --group tests
-          pip list
+      
+      - name: Install packages (latest)
+        # Latest versions of dependencies monitored by Dependabot
+        if: matrix.deps == 'latest'
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install -r .github/deps/latest/requirements.txt
+        
+      - name: Install packages (minimum)
+        # Oldest supported versions of dependencies in `pyproject.toml`
+        if: matrix.deps == 'minimum'
+        run: |
+          pip install -e .
+          pip install -r .github/deps/minimum/requirements.txt
+      
+      - name: List installed packages
+        run: pip list
 
       - name: Run tests
         run: pytest -vv --cov --cov-report=xml
